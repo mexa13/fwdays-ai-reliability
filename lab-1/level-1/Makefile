@@ -45,7 +45,7 @@ test-lmstudio:
 	@echo "Override model with: make test-lmstudio MODEL=<name>"
 	curl -s http://localhost:3000/v1/chat/completions \
 		-H "Content-Type: application/json" \
-		-d "{\"model\":\"$${MODEL:-google/gemma-3-4b}\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one word\"}]}" \
+		-d "{\"model\":\"$${MODEL:-google/gemma-4-e4b}\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one word\"}]}" \
 		| jq .
 
 test-ui:

@@ -1,19 +1,26 @@
-.PHONY: help run test down ui gw-status logs status
+.PHONY: help run run-anthropic run-lmstudio test down ui gw-status logs status
 
 help:
 	@echo "Level 3 (Max) — agentgateway + kagent + Gateway API"
 	@echo ""
-	@echo "  run         Create KinD cluster and deploy all components + Gateway API"
+	@echo "  run              Deploy with OpenAI     (requires OPENAI_API_KEY)"
+	@echo "  run-anthropic    Deploy with Anthropic  (requires ANTHROPIC_API_KEY)"
+	@echo "  run-lmstudio     Deploy with LM Studio  (LM Studio must run on port 1234)"
+	@echo ""
 	@echo "  test        Verify: GatewayClass, Gateway, HTTPRoute, agents, chat completions"
 	@echo "  down        Destroy the cluster and all resources"
 	@echo "  ui          Port-forward kagent UI to http://localhost:8080"
 	@echo "  gw-status   Show Gateway API resource status"
 	@echo "  logs        Tail agentgateway logs"
-	@echo ""
-	@echo "Requires: export OPENAI_API_KEY=sk-..."
 
 run:
 	@bash scripts/setup.sh
+
+run-anthropic:
+	@LLM_PROVIDER=anthropic bash scripts/setup.sh
+
+run-lmstudio:
+	@LLM_PROVIDER=lmstudio bash scripts/setup.sh
 
 test:
 	@bash scripts/test.sh

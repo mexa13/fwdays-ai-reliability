@@ -3,7 +3,7 @@
 ## Objectives
 
 1. Install agentgateway binary locally
-2. Choose an LLM provider (OpenAI / Anthropic)
+2. Choose an LLM provider (OpenAI / Anthropic / LM Studio)
 3. Configure `config.yaml`
 4. Run the gateway and access the Admin UI
 5. Verify LLM access and explore Backends and Policy features
@@ -11,7 +11,22 @@
 ## Prerequisites
 
 - `curl`, `bash`
-- LLM API key: `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`
+- An LLM provider (see below)
+
+---
+
+## LLM Providers
+
+| Command | Provider | Requires | Port |
+|---------|----------|----------|------|
+| `make run` | OpenAI | `OPENAI_API_KEY` | 4000 |
+| `make run-multi` | OpenAI + Anthropic | `OPENAI_API_KEY` + `ANTHROPIC_API_KEY` | 3000 |
+| `make run-lmstudio` | LM Studio (local) | LM Studio on port 1234 | 3000 |
+
+**LM Studio** is a free alternative — runs models locally, no API key or internet connection needed.
+Tested with model `google/gemma-3-4b`. Any model loaded in LM Studio works.
+
+---
 
 ## Steps
 
@@ -28,56 +43,61 @@ Verify:
 agentgateway --version
 ```
 
-### 2. Configuration
+### 2. Start the gateway
 
-`config.yaml` is pre-configured for OpenAI via an environment variable:
-
-```yaml
-llm:
-  models:
-    - name: "*"          # wildcard — passes through any OpenAI model name
-      provider: openAI
-      params:
-        apiKey: "$OPENAI_API_KEY"
-```
-
-For multi-provider routing (OpenAI + Anthropic), use `config.anthropic.yaml`.
-
-### 3. Start the gateway
-
+**OpenAI** (port 4000):
 ```bash
 export OPENAI_API_KEY=sk-...
 make run
 ```
 
-Multi-provider:
+**Anthropic + OpenAI** — multi-provider mode, routing by `x-provider` header (port 3000):
 ```bash
 export OPENAI_API_KEY=sk-...
 export ANTHROPIC_API_KEY=sk-ant-...
 make run-multi
 ```
 
-### 4. Access the UI
+**LM Studio** — no API key needed (port 3000):
+```bash
+# LM Studio must be running on port 1234 before this
+make run-lmstudio
+```
+
+### 3. Access the Admin UI
 
 | Endpoint | URL |
 |----------|-----|
 | Admin UI | http://localhost:15000/ui/ |
-| Chat API | http://localhost:4000/v1/chat/completions |
+| Chat API (`run`) | http://localhost:4000/v1/chat/completions |
+| Chat API (`run-multi` / `run-lmstudio`) | http://localhost:3000/v1/chat/completions |
 
-### 5. Test
+### 4. Test
 
+**OpenAI / Anthropic (port 4000):**
 ```bash
 make test
 
-# or manually:
+# manually:
 curl http://localhost:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hello!"}]}'
 ```
 
-Multi-provider routing via `x-provider` header (port 3000):
+**LM Studio (port 3000):**
 ```bash
-# Default (OpenAI):
+make test-lmstudio
+# Override model: MODEL=google/gemma-3-4b make test-lmstudio
+
+# manually:
+curl http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"google/gemma-3-4b","messages":[{"role":"user","content":"Hello!"}]}'
+```
+
+**Multi-provider routing via `x-provider` header (port 3000):**
+```bash
+# Default route → OpenAI:
 curl http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hello!"}]}'
@@ -89,6 +109,18 @@ curl http://localhost:3000/v1/chat/completions \
   -d '{"model":"claude-sonnet-4-6","messages":[{"role":"user","content":"Hello!"}]}'
 ```
 
+---
+
+## Config Files
+
+| File | Provider | Port | Notes |
+|------|----------|------|-------|
+| `config.yaml` | OpenAI | 4000 | `llm:` mode, single provider |
+| `config.anthropic.yaml` | OpenAI + Anthropic | 3000 | `binds:` mode, routes by `x-provider` header |
+| `config.lmstudio.yaml` | LM Studio | 3000 | `llm:` mode, `hostOverride: localhost:1234` |
+
+---
+
 ## Supported LLM Providers
 
 | Provider | `provider` value | Env var |
@@ -98,12 +130,13 @@ curl http://localhost:3000/v1/chat/completions \
 | Google Gemini | `gemini` | `GEMINI_API_KEY` |
 | AWS Bedrock | `bedrock` | AWS credentials |
 | Azure OpenAI | `azure` | `AZURE_API_KEY` |
-| Ollama (local) | `openAI` + `hostOverride: localhost:11434` | — |
+| LM Studio / Ollama (local) | `openAI` + `hostOverride: localhost:1234` | — |
+
+---
 
 ## Stop
 
 ```bash
 make stop
-# or:
-Ctrl+C
+# or: Ctrl+C
 ```

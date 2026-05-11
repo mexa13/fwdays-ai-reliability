@@ -1,0 +1,37 @@
+---
+# HTTPRoute for Anthropic — routes /v1/* to the Anthropic AgentgatewayBackend.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: anthropic-route
+  namespace: agentgateway-system
+spec:
+  parentRefs:
+    - name: agentgateway-proxy
+      namespace: agentgateway-system
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+      backendRefs:
+        - name: anthropic
+          namespace: agentgateway-system
+          group: agentgateway.dev
+          kind: AgentgatewayBackend
+---
+# ReferenceGrant — allows the HTTPRoute to reference AgentgatewayBackend
+# in the same namespace (required by Gateway API cross-group references).
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: agentgateway-backend-access
+  namespace: agentgateway-system
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: agentgateway-system
+  to:
+    - group: agentgateway.dev
+      kind: AgentgatewayBackend

@@ -19,18 +19,48 @@
 
 > **GitHub Codespaces**: all tools are installed automatically by the devcontainer. Open a Codespace with **4-core · 16 GB RAM** and skip this section.
 
+---
+
+## LLM Providers
+
+| Command | Provider | Requires | How kagent connects |
+|---------|----------|----------|---------------------|
+| `make run` | OpenAI | `OPENAI_API_KEY` | kagent → agentgateway (ClusterIP) → OpenAI API |
+| `make run-anthropic` | Anthropic | `ANTHROPIC_API_KEY` | kagent → agentgateway (ClusterIP) → Anthropic API |
+| `make run-lmstudio` | LM Studio (local) | LM Studio on port 1234 | kagent → `host.docker.internal:1234` directly |
+
+**LM Studio** lets you run models locally without any API key. Tested with `google/gemma-3-4b`.
+Set `LMSTUDIO_MODEL=<name>` to use a different model loaded in LM Studio.
+
+For LM Studio, kagent connects directly to the host machine (`host.docker.internal:1234`) and bypasses
+the agentgateway backend — the gateway is still deployed but not used for LLM routing.
+
+---
+
 ## Quick Start
 
 ```bash
+# OpenAI
 export OPENAI_API_KEY=sk-...
 make run
+
+# Anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+make run-anthropic
+
+# LM Studio (LM Studio must be running on port 1234)
+make run-lmstudio
+# or with a specific model:
+LMSTUDIO_MODEL=google/gemma-3-4b make run-lmstudio
 ```
 
 After setup completes (~10–15 min):
 ```bash
 make test      # verify all components
-make status    # show pods / services / agents
+make down      # destroy the cluster
 ```
+
+---
 
 ## Architecture
 
@@ -41,40 +71,27 @@ make status    # show pods / services / agents
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
 │  │  agentgateway v1.1.0 (Helm)                                         │  │
 │  │  ├── Deployment: agentgateway                                        │  │
-│  │  ├── Service: agentgateway  (ClusterIP :80)                          │  │
-│  │  ├── Secret: openai-secret  ← $OPENAI_API_KEY                       │  │
-│  │  └── AgentgatewayBackend: openai  (gpt-4o-mini)                     │  │
+│  │  ├── Service: agentgateway  (ClusterIP)                              │  │
+│  │  ├── Secret: openai-secret  ← $OPENAI_API_KEY   (run)               │  │
+│  │  ├── Secret: anthropic-secret  ← $ANTHROPIC_API_KEY  (run-anthropic) │  │
+│  │  ├── AgentgatewayBackend: openai  (gpt-4o-mini)      (run)          │  │
+│  │  └── AgentgatewayBackend: anthropic  (claude-sonnet-4-6) (run-anth.) │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                            │
 │  Namespace: kagent                                                         │
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
 │  │  kagent v0.9.2 (Helm)                                               │  │
-│  │  ├── providers.openAI.baseURL → agentgateway:80/v1  ←──────────────┼──┤
+│  │  ├── run / run-anthropic: baseURL → agentgateway:ClusterIP/v1  ─────┼──┤
+│  │  ├── run-lmstudio: baseUrl → host.docker.internal:1234/v1           │  │
 │  │  ├── Built-in Kubernetes agent                                       │  │
 │  │  └── kagent-ui  (port 8080)                                          │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────────────┘
-
-LLM request path:  kagent → agentgateway (ClusterIP) → OpenAI API
 ```
 
-## Deployment Steps
+---
 
-### Automated (recommended)
-
-```bash
-make run
-```
-
-`scripts/setup.sh` runs these steps in order:
-1. `kind create cluster` — 1 control-plane + 2 worker nodes
-2. `helm install agentgateway-crds` — agentgateway CRDs
-3. `helm install agentgateway` — proxy deployment + Service
-4. `kubectl create secret` — injects `$OPENAI_API_KEY`
-5. `kubectl apply manifests/llm-backend.yaml` — `AgentgatewayBackend` CRD
-6. `helm install kagent-crds` + `helm install kagent` — agent runtime
-
-### Manual (step by step)
+## Deployment Steps (manual)
 
 ```bash
 # Create cluster
@@ -89,12 +106,10 @@ helm upgrade --install agentgateway \
   oci://cr.agentgateway.dev/charts/agentgateway \
   -n agentgateway-system --version v1.1.0 --wait
 
-# Secret
+# Secret + Backend (OpenAI example)
 kubectl create secret generic openai-secret \
   -n agentgateway-system \
   --from-literal="Authorization=$OPENAI_API_KEY"
-
-# LLM backend CRD
 kubectl apply -f manifests/llm-backend.yaml
 
 # kagent
@@ -111,15 +126,18 @@ helm upgrade --install kagent \
   --wait
 ```
 
+---
+
 ## Verification
 
 ```bash
 make test
 
-# Or manually:
+# Individual checks:
 kubectl get pods -A
 kubectl get agents -n kagent
 kubectl get svc -n agentgateway-system
+kubectl get modelconfig -n kagent -o yaml
 ```
 
 Access kagent UI:
@@ -128,23 +146,29 @@ kubectl port-forward svc/kagent-ui -n kagent 8080:8080
 # Open: http://localhost:8080
 ```
 
+---
+
 ## Teardown
 
 ```bash
 make down
 ```
 
+---
+
 ## File Reference
 
 | File | Purpose |
 |------|---------|
 | `kind-config.yaml` | KinD cluster spec (3 nodes) |
-| `manifests/llm-backend.yaml` | `AgentgatewayBackend` CRD — OpenAI provider |
+| `manifests/llm-backend.yaml` | `AgentgatewayBackend` — OpenAI (gpt-4o-mini) |
+| `manifests/llm-backend-anthropic.yaml` | `AgentgatewayBackend` — Anthropic (claude-sonnet-4-6) |
 | `manifests/llm-secret.yaml` | Secret template (key injected by setup.sh) |
-| `helm/kagent-values.yaml` | kagent Helm values with agentgateway baseURL |
-| `scripts/setup.sh` | Full deployment script |
-| `scripts/test.sh` | Integration test |
+| `scripts/setup.sh` | Full deployment script (provider-aware) |
+| `scripts/test.sh` | Integration test (provider-aware) |
 | `scripts/teardown.sh` | Cluster teardown |
+
+---
 
 ## Component Versions
 

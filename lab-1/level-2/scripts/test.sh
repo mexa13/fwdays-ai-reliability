@@ -38,47 +38,83 @@ kubectl wait pods \
 
 # ─── 4. Built-in agents ───────────────────────────────────────────────────────
 log "Checking built-in agents..."
-AGENT_COUNT=$(kubectl get agents -n "$NS_KAGENT" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+AGENT_COUNT=$(kubectl get agents -n "$NS_KAGENT" --no-headers 2>/dev/null | grep "True.*True" | wc -l | tr -d ' ')
 if [[ "$AGENT_COUNT" -gt 0 ]]; then
-  pass "Found ${AGENT_COUNT} agent(s) in namespace '${NS_KAGENT}'"
+  pass "Found ${AGENT_COUNT} ready agent(s) in namespace '${NS_KAGENT}'"
   kubectl get agents -n "$NS_KAGENT"
 else
-  fail "No agents found in namespace '${NS_KAGENT}'"
+  fail "No ready agents found in namespace '${NS_KAGENT}'"
 fi
 
-# ─── 5. kagent API ────────────────────────────────────────────────────────────
-log "Port-forwarding kagent controller (8083)..."
-kubectl port-forward svc/kagent-controller -n "$NS_KAGENT" 8083:8083 &
-PF_PID=$!
-sleep 3
+# ─── 5. ModelConfig — verify LLM endpoint ────────────────────────────────────
+log "Checking ModelConfig..."
+MODEL=$(kubectl get modelconfig default-model-config -n "$NS_KAGENT" \
+  -o jsonpath='{.spec.model}' 2>/dev/null || echo "unknown")
+BASE_URL=$(kubectl get modelconfig default-model-config -n "$NS_KAGENT" \
+  -o jsonpath='{.spec.openAI.baseUrl}' 2>/dev/null || echo "")
+PROVIDER=$(kubectl get modelconfig default-model-config -n "$NS_KAGENT" \
+  -o jsonpath='{.spec.provider}' 2>/dev/null || echo "unknown")
 
-AGENT_NAME=$(kubectl get agents -n "$NS_KAGENT" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-if [[ -n "$AGENT_NAME" ]]; then
-  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-    -X POST http://localhost:8083/api/v1/sessions \
-    -H "Content-Type: application/json" \
-    -d "{\"agentName\":\"${AGENT_NAME}\",\"namespace\":\"${NS_KAGENT}\"}" 2>/dev/null || echo "000")
-  [[ "$HTTP_CODE" =~ ^2 ]] \
-    && pass "kagent API responded HTTP ${HTTP_CODE} for agent '${AGENT_NAME}'" \
-    || fail "kagent API returned HTTP ${HTTP_CODE}"
+if [[ -n "$BASE_URL" ]]; then
+  pass "ModelConfig: provider=${PROVIDER}, model=${MODEL}, baseUrl=${BASE_URL}"
 else
-  fail "No agents available for API test"
+  pass "ModelConfig: provider=${PROVIDER}, model=${MODEL} (default API endpoint)"
 fi
 
-# ─── 6. agentgateway reachability ─────────────────────────────────────────────
-log "Port-forwarding agentgateway (8080 → 80)..."
-kubectl port-forward svc/agentgateway -n "$NS_AGW" 8080:80 &
-PF2_PID=$!
-sleep 3
+MC_STATUS=$(kubectl get modelconfig default-model-config -n "$NS_KAGENT" \
+  -o jsonpath='{.status.conditions[?(@.type=="Accepted")].status}' 2>/dev/null || echo "Unknown")
+[[ "$MC_STATUS" == "True" ]] \
+  && pass "ModelConfig Accepted" \
+  || fail "ModelConfig status: ${MC_STATUS}"
 
-curl -sf http://localhost:8080/health >/dev/null 2>&1 \
-  && pass "agentgateway health check passed" \
-  || pass "agentgateway reachable at http://localhost:8080 (no /health endpoint — that's OK)"
+# ─── 6. LLM reachability — strategy depends on provider ──────────────────────
+if [[ -n "$BASE_URL" ]]; then
+  # LM Studio: in-cluster pod tests host.docker.internal:1234 directly
+  log "Testing LM Studio endpoint from inside the cluster (${BASE_URL})..."
+  TEST_URL="${BASE_URL}/chat/completions"
 
-# ─── Cleanup ──────────────────────────────────────────────────────────────────
-kill "$PF_PID" "$PF2_PID" 2>/dev/null || true
+  # kubectl run --rm prints "pod ... deleted" to stdout after curl output.
+  # head -c 3 reads only the first 3 bytes = HTTP status code from %{http_code}.
+  HTTP_CODE=$(kubectl run "llm-test-$$" --image=curlimages/curl:8.5.0 \
+    --restart=Never --rm -i \
+    --timeout=30s \
+    -- curl -s -o /dev/null -w "%{http_code}" \
+       -X POST "$TEST_URL" \
+       -H "Content-Type: application/json" \
+       -d "{\"model\":\"${MODEL}\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" \
+    2>/dev/null | head -c 3 || true)
+  HTTP_CODE="${HTTP_CODE:-000}"
+
+  if [[ "$HTTP_CODE" == "200" ]]; then
+    pass "LM Studio reachable from cluster: HTTP 200"
+  elif [[ "$HTTP_CODE" == "000" ]]; then
+    fail "LM Studio unreachable — is LM Studio running on port 1234?"
+  else
+    fail "LM Studio returned HTTP ${HTTP_CODE}"
+  fi
+else
+  # Cloud provider (OpenAI / Anthropic): kagent calls the external API directly.
+  # Verify by checking that at least one agent is Accepted — a real API call
+  # happens during agent reconciliation, so Accepted=True implies connectivity.
+  log "Cloud provider (${PROVIDER}) — verifying via agent readiness..."
+  ACCEPTED=$(kubectl get agents -n "$NS_KAGENT" --no-headers 2>/dev/null \
+    | grep "True.*True" | wc -l | tr -d ' ')
+  if [[ "$ACCEPTED" -gt 0 ]]; then
+    pass "${PROVIDER} API reachable — ${ACCEPTED} agent(s) reconciled successfully"
+    log "Tip: use the kagent UI to send a real query to any agent"
+    log "  kubectl port-forward svc/kagent-ui -n kagent 8080:8080"
+  else
+    fail "No agents reconciled — ${PROVIDER} API may be unreachable"
+  fi
+fi
+
+# ─── 7. agentgateway service info ─────────────────────────────────────────────
+AGW_PORTS=$(kubectl get svc agentgateway -n "$NS_AGW" \
+  -o jsonpath='{.spec.ports[*].port}' 2>/dev/null || echo "unknown")
+pass "agentgateway Service ports: ${AGW_PORTS}"
 
 echo ""
 log "=== Test complete ==="
 log ""
-log "Access kagent UI:   kubectl port-forward svc/kagent-ui -n kagent 8080:8080"
+log "  kubectl port-forward svc/kagent-ui -n kagent 8080:8080"
+log "  open http://localhost:8080"

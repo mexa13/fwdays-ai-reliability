@@ -12,6 +12,51 @@ Complete Level 2, but route LLM traffic through the **Kubernetes Gateway API** i
 | Direct Service connection | Traffic flows through a GatewayClass controller |
 | No Gateway API CRDs | Gateway API CRDs v1.5.1 |
 
+---
+
+## LLM Providers
+
+| Command | Provider | Requires | How kagent connects |
+|---------|----------|----------|---------------------|
+| `make run` | OpenAI | `OPENAI_API_KEY` | kagent → Gateway → `openai-route` → `openai` backend → OpenAI API |
+| `make run-anthropic` | Anthropic | `ANTHROPIC_API_KEY` | kagent → Gateway → `anthropic-route` → `anthropic` backend → Anthropic API |
+| `make run-lmstudio` | LM Studio (local) | LM Studio on port 1234 | kagent → `host.docker.internal:1234` directly |
+
+For `run` and `run-anthropic`, LLM traffic passes through the full Gateway API chain. The
+Gateway is a single entry point; the HTTPRoute selects which `AgentgatewayBackend` handles
+the request based on the provider.
+
+For `run-lmstudio`, the Gateway API resources (GatewayClass, Gateway) are still created so
+you can inspect them, but no HTTPRoute is applied — kagent connects directly to LM Studio on
+the host machine. Tested with `google/gemma-3-4b`.
+
+---
+
+## Quick Start
+
+```bash
+# OpenAI
+export OPENAI_API_KEY=sk-...
+make run
+
+# Anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+make run-anthropic
+
+# LM Studio (LM Studio must be running on port 1234)
+make run-lmstudio
+# or with a specific model:
+LMSTUDIO_MODEL=google/gemma-3-4b make run-lmstudio
+```
+
+After setup completes (~10–15 min):
+```bash
+make test      # verify GatewayClass, Gateway, HTTPRoute, agents
+make down      # destroy the cluster
+```
+
+---
+
 ## Architecture
 
 ```
@@ -23,40 +68,32 @@ Complete Level 2, but route LLM traffic through the **Kubernetes Gateway API** i
 │  │       │                                                             │  │
 │  │  Gateway: agentgateway-proxy  (HTTP :80, allowedRoutes: All)        │  │
 │  │       │                                                             │  │
-│  │  HTTPRoute: openai-route  (/v1/* → AgentgatewayBackend)             │  │
+│  │  HTTPRoute: openai-route      /v1/* → openai backend  (run)         │  │
+│  │  HTTPRoute: anthropic-route   /v1/* → anthropic backend (run-anth.) │  │
 │  │       │                                                             │  │
-│  │  AgentgatewayBackend: openai  (gpt-4o-mini + openai-secret)         │  │
-│  │       │                                                             │  │
-│  │  Secret: openai-secret  ← $OPENAI_API_KEY                          │  │
+│  │  AgentgatewayBackend: openai      (gpt-4o-mini)       + Secret      │  │
+│  │  AgentgatewayBackend: anthropic   (claude-sonnet-4-6) + Secret      │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                            │
 │  Namespace: kagent                                                         │
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │  providers.openAI.baseURL → agentgateway-proxy:80/v1  ←────────────┼──┤
+│  │  run / run-anthropic: baseURL → agentgateway-proxy:80/v1  ──────────┼──┤
+│  │  run-lmstudio:        baseUrl → host.docker.internal:1234/v1        │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────────────┘
 
-LLM request path:
-  kagent → Gateway (agentgateway-proxy :80) → HTTPRoute match /v1
+LLM request path (OpenAI):
+  kagent → Gateway (agentgateway-proxy :80) → openai-route /v1
          → AgentgatewayBackend (openai) → OpenAI API
+
+LLM request path (Anthropic):
+  kagent → Gateway (agentgateway-proxy :80) → anthropic-route /v1
+         → AgentgatewayBackend (anthropic) → Anthropic API
 ```
 
-## Quick Start
+---
 
-```bash
-export OPENAI_API_KEY=sk-...
-make run
-```
-
-## Deployment Steps
-
-### Automated (recommended)
-
-```bash
-make run
-```
-
-### Manual (step by step)
+## Deployment Steps (manual)
 
 ```bash
 # 1. Create cluster
@@ -77,14 +114,13 @@ helm upgrade --install agentgateway \
   --set "controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true" \
   --wait
 
-# 4. Secret + Gateway API resources
+# 4. Secret + AgentgatewayBackend + Gateway API resources (OpenAI example)
 kubectl create secret generic openai-secret \
   -n agentgateway-system \
   --from-literal="Authorization=$OPENAI_API_KEY"
-
 kubectl apply -f manifests/llm-backend.yaml
 kubectl apply -f manifests/gateway.yaml
-kubectl apply -f manifests/httproute.yaml
+kubectl apply -f manifests/httproute.yaml       # OpenAI route
 
 # 5. kagent — routed through the Gateway
 helm upgrade --install kagent-crds \
@@ -100,10 +136,12 @@ helm upgrade --install kagent \
   --wait
 ```
 
+---
+
 ## Verifying Gateway API Resources
 
 ```bash
-make gw-status
+make test
 
 # Individual checks:
 kubectl get gatewayclass agentgateway
@@ -120,6 +158,8 @@ Expected conditions:
 - `Gateway`: `Programmed: True`
 - `HTTPRoute`: `Accepted: True`
 
+---
+
 ## Testing via Gateway
 
 ```bash
@@ -128,10 +168,18 @@ make test
 # Or manually — port-forward the Gateway:
 kubectl port-forward svc/agentgateway-proxy -n agentgateway-system 8080:80
 
+# OpenAI:
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hello from Gateway API!"}]}'
+
+# Anthropic (same endpoint — agentgateway translates the protocol):
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-sonnet-4-6","messages":[{"role":"user","content":"Hello from Gateway API!"}]}'
 ```
+
+---
 
 ## Teardown
 
@@ -139,18 +187,23 @@ curl http://localhost:8080/v1/chat/completions \
 make down
 ```
 
+---
+
 ## File Reference
 
 | File | Purpose |
 |------|---------|
 | `kind-config.yaml` | KinD cluster spec (3 nodes) |
-| `manifests/llm-backend.yaml` | `AgentgatewayBackend` CRD |
-| `manifests/llm-secret.yaml` | Secret template |
+| `manifests/llm-backend.yaml` | `AgentgatewayBackend` — OpenAI (gpt-4o-mini) |
+| `manifests/llm-backend-anthropic.yaml` | `AgentgatewayBackend` — Anthropic (claude-sonnet-4-6) |
 | `manifests/gateway.yaml` | `Gateway` — GatewayClass agentgateway, listener :80 |
-| `manifests/httproute.yaml` | `HTTPRoute` /v1/* → AgentgatewayBackend + ReferenceGrant |
-| `scripts/setup.sh` | Full deployment script |
-| `scripts/test.sh` | GatewayClass / Gateway / HTTPRoute / agents checks |
+| `manifests/httproute.yaml` | `HTTPRoute` openai-route: /v1/* → openai backend |
+| `manifests/httproute-anthropic.yaml` | `HTTPRoute` anthropic-route: /v1/* → anthropic backend |
+| `scripts/setup.sh` | Full deployment script (provider-aware) |
+| `scripts/test.sh` | GatewayClass / Gateway / HTTPRoute / agents checks (provider-aware) |
 | `scripts/teardown.sh` | Cluster teardown |
+
+---
 
 ## Component Versions
 
