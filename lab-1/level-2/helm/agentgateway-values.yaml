@@ -1,0 +1,5 @@
+# AgentGateway Helm values — Level 2
+# Ref: https://agentgateway.dev/docs/kubernetes/main/about/gateway-api/
+
+# Deploy agentgateway as a standard Kubernetes Deployment + Service
+# Backend/routing is configured separately via AgentgatewayBackend CRDs

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+# AgentGateway — LLM Gateway Config (OpenAI)
+#
+# Usage:
+#   export OPENAI_API_KEY=sk-...
+#   agentgateway -f config.yaml
+#
+# Admin UI:  http://localhost:15000/ui/
+# Chat API:  http://localhost:4000/v1/chat/completions
+
+llm:
+  models:
+    # Wildcard — passes through any OpenAI model name unchanged
+    - name: "*"
+      provider: openAI
+      params:
+        apiKey: "$OPENAI_API_KEY"

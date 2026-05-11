@@ -1,0 +1,18 @@
+---
+# AgentgatewayBackend — OpenAI LLM provider.
+# Referenced by HTTPRoute as the upstream backend for /v1/* requests.
+# The Secret "openai-secret" holds the Authorization header value (API key).
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: openai
+  namespace: agentgateway-system
+spec:
+  ai:
+    provider:
+      openai:
+        model: gpt-4o-mini
+  policies:
+    auth:
+      secretRef:
+        name: openai-secret

@@ -1,0 +1,39 @@
+{
+  "name": "AI Reliability Engineering Lab",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "enableNonRootDocker": "true",
+      "moby": "true"
+    },
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "version": "1.30",
+      "helm": "latest",
+      "minikube": "none"
+    },
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": "true",
+      "configureZshAsDefaultShell": "true"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [3000, 4000, 8080, 8082, 8083, 15000],
+  "portsAttributes": {
+    "3000": { "label": "agentgateway API (binds mode)", "onAutoForward": "notify" },
+    "4000": { "label": "agentgateway API (llm mode)", "onAutoForward": "notify" },
+    "8080": { "label": "kagent UI", "onAutoForward": "notify" },
+    "8082": { "label": "kagent dashboard", "onAutoForward": "notify" },
+    "8083": { "label": "kagent API", "onAutoForward": "notify" },
+    "15000": { "label": "agentgateway Admin UI", "onAutoForward": "notify" }
+  },
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "KUBECONFIG": "/home/vscode/.kube/config"
+  }
+}

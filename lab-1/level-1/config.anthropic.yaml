@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+# AgentGateway — Multi-Provider Config (Anthropic + OpenAI)
+#
+# Usage:
+#   export OPENAI_API_KEY=sk-...
+#   export ANTHROPIC_API_KEY=sk-ant-...
+#   agentgateway -f config.anthropic.yaml
+#
+# Route by x-provider header:
+#   curl -H "x-provider: anthropic" http://localhost:3000/v1/chat/completions
+#   curl http://localhost:3000/v1/chat/completions    (defaults to openai)
+#
+# Admin UI: http://localhost:15000/ui/
+
+binds:
+  - port: 3000
+    listeners:
+      - routes:
+          - name: anthropic
+            matches:
+              - path:
+                  pathPrefix: /
+                headers:
+                  - name: x-provider
+                    value:
+                      exact: anthropic
+            backends:
+              - ai:
+                  name: anthropic
+                  provider:
+                    anthropic:
+                      model: claude-sonnet-4-20250514
+            policies:
+              cors:
+                allowOrigins: ["*"]
+                allowHeaders: ["*"]
+              backendAuth:
+                key: "$ANTHROPIC_API_KEY"
+
+          - name: openai-default
+            backends:
+              - ai:
+                  name: openai
+                  provider:
+                    openAI:
+                      model: gpt-4o-mini
+            policies:
+              cors:
+                allowOrigins: ["*"]
+                allowHeaders: ["*"]
+              backendAuth:
+                key: "$OPENAI_API_KEY"

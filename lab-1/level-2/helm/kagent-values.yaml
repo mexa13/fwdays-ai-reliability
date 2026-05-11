@@ -1,0 +1,28 @@
+# kagent Helm values — Level 2
+# kagent routes all LLM calls through the agentgateway Service instead of calling OpenAI directly
+#
+# agentgateway Service FQDN inside the cluster:
+#   agentgateway.agentgateway-system.svc.cluster.local
+
+providers:
+  default: openAI
+  openAI:
+    # API key forwarded to agentgateway; agentgateway injects it into upstream requests
+    apiKey: "PLACEHOLDER_SET_BY_INSTALL_SCRIPT"
+    # Route through agentgateway proxy instead of calling OpenAI directly
+    baseURL: "http://agentgateway.agentgateway-system.svc.cluster.local/v1"
+
+agents:
+  # Disable Cilium/Istio agents — not needed for this lab
+  cilium-policy-agent:
+    enabled: false
+  cilium-manager-agent:
+    enabled: false
+  cilium-debug-agent:
+    enabled: false
+  istio-agent:
+    enabled: false
+  istio-policy-agent:
+    enabled: false
+  istio-manager-agent:
+    enabled: false
