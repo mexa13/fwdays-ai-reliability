@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+# AgentGateway — LM Studio local config
+#
+# Usage:
+#   agentgateway -f config.lmstudio.yaml
+#
+# Admin UI:  http://localhost:15000/ui/
+# Chat API:  http://localhost:3000/v1/chat/completions
+#
+# LM Studio must be running with the local server enabled (default port 1234).
+
+llm:
+  port: 3000
+  models:
+  - name: "*"
+    provider: openAI
+    params:
+      hostOverride: "localhost:1234"

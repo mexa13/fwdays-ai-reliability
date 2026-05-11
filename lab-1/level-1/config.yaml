@@ -10,8 +10,8 @@
 
 llm:
   models:
-    # Wildcard — passes through any OpenAI model name unchanged
-    - name: "*"
-      provider: openAI
-      params:
-        apiKey: "$OPENAI_API_KEY"
+  - name: gpt-4o-mini
+    provider: openAI
+    params:
+      model: gpt-4o-mini
+      apiKey: "$OPENAI_API_KEY"

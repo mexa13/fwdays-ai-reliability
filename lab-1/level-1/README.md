@@ -86,7 +86,7 @@ curl http://localhost:3000/v1/chat/completions \
 curl http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "x-provider: anthropic" \
-  -d '{"model":"claude-sonnet-4-20250514","messages":[{"role":"user","content":"Hello!"}]}'
+  -d '{"model":"claude-sonnet-4-6","messages":[{"role":"user","content":"Hello!"}]}'
 ```
 
 ## Supported LLM Providers
