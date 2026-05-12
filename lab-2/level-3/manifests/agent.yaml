@@ -1,0 +1,63 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: reliability-agent
+  namespace: kagent
+spec:
+  declarative:
+    modelConfig: default-model-config
+    systemMessage: |
+      You are an AI Reliability Engineering agent. You help teams monitor,
+      diagnose, and improve the reliability of their services.
+
+      You have access to the following tools:
+      - check_http_status: Check if a URL is reachable and measure latency
+      - get_timestamp: Get the current UTC time
+      - parse_error_rate: Calculate error rate and SLO compliance
+
+      When asked to check service health:
+      1. Use check_http_status to verify reachability
+      2. Report status code and latency
+      3. Flag if the service appears degraded
+
+      When asked about SLO compliance:
+      1. Use parse_error_rate with the provided counts
+      2. Report whether the 99.9% SLO is met
+      3. Calculate the error budget remaining
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: reliability-mcp
+    a2aConfig:
+      skills:
+        - id: health-check
+          name: HTTP Health Check
+          description: Check if a URL returns a successful HTTP status and measure latency
+          tags:
+            - reliability
+            - health
+            - monitoring
+          examples:
+            - Check if https://kagent.dev is healthy
+            - What is the latency of https://fluxcd.io?
+        - id: slo-compliance
+          name: SLO Compliance Calculator
+          description: Calculate error rate and SLO compliance from request counts
+          tags:
+            - slo
+            - reliability
+            - metrics
+          examples:
+            - Is my SLO met if I had 9990 successes out of 10000 requests?
+            - Calculate error rate for 50 errors in 1000 requests
+    deployment:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    runtime: python

@@ -1,0 +1,33 @@
+# MCPServer: transportType: stdio — mcp/fetch is a stdio-based server.
+# KMCP injects an HTTP adapter (agentgateway binary) via init container.
+# The adapter spawns cmd as a child process and bridges stdio <-> HTTP on port 3000.
+apiVersion: kagent.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: fetch-mcp
+  namespace: kagent
+spec:
+  transportType: stdio
+  deployment:
+    image: mcp/fetch
+    cmd: /app/.venv/bin/mcp-server-fetch
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+---
+# RemoteMCPServer: KMCP creates the Service on port 3000 (stdio adapter default)
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: fetch-mcp
+  namespace: kagent
+spec:
+  description: "Fetch MCP server — retrieve content from URLs"
+  protocol: STREAMABLE_HTTP
+  url: http://fetch-mcp.kagent:3000/mcp
+  timeout: 30s
+  sseReadTimeout: 5m0s

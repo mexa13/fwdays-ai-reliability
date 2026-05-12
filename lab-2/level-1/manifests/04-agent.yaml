@@ -1,0 +1,46 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: web-researcher
+  namespace: kagent
+spec:
+  declarative:
+    modelConfig: default-model-config
+    systemMessage: |
+      You are a web researcher agent. You can fetch content from URLs and
+      summarize information from web pages. When asked about documentation,
+      articles, or any web resource, use the fetch tool to retrieve and
+      analyze the content.
+
+      Always:
+      - Fetch the URL before answering questions about its content
+      - Provide concise summaries of fetched content
+      - Extract key information relevant to the user's question
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: fetch-mcp
+          toolNames: []
+    a2aConfig:
+      skills:
+        - id: web-fetch
+          name: Web Content Fetcher
+          description: Fetches and summarizes content from URLs
+          tags:
+            - fetch
+            - web
+            - research
+          examples:
+            - Fetch https://kagent.dev and summarize what kagent is
+            - Get the content from https://docs.fluxcd.io and explain GitOps
+    deployment:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    runtime: python

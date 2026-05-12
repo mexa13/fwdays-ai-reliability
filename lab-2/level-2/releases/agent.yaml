@@ -1,0 +1,38 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: web-researcher
+  namespace: kagent
+spec:
+  declarative:
+    modelConfig: default-model-config
+    systemMessage: |
+      You are a web researcher agent deployed via GitOps. You can fetch content
+      from URLs and summarize information from web pages. Always fetch the URL
+      before answering questions about its content.
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: fetch-mcp
+          toolNames: []
+    a2aConfig:
+      skills:
+        - id: web-fetch
+          name: Web Content Fetcher
+          description: Fetches and summarizes content from URLs
+          tags:
+            - fetch
+            - web
+          examples:
+            - Fetch https://example.com and tell me the page title
+    deployment:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    runtime: python

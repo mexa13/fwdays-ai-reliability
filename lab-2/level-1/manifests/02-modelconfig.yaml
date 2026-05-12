@@ -1,0 +1,26 @@
+# Option A: OpenAI (patch the existing kagent-openai secret first)
+#   kubectl --context kind-abox create secret generic kagent-openai \
+#     --from-literal=OPENAI_API_KEY="sk-..." \
+#     -n kagent --dry-run=client -o yaml | kubectl --context kind-abox apply -f -
+#
+# Option B: Anthropic (apply 01-secret.yaml first, then use this config)
+#
+# Switch between providers by changing spec.provider and spec.apiKeySecret
+
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: default-model-config
+  namespace: kagent
+# spec:
+#   provider: OpenAI
+#   model: gpt-4o-mini
+#   apiKeySecret: kagent-openai
+#   apiKeySecretKey: OPENAI_API_KEY
+
+# --- Anthropic alternative ---
+spec:
+  provider: Anthropic
+  model: claude-haiku-4-5-20251001
+  apiKeySecret: kagent-anthropic
+  apiKeySecretKey: ANTHROPIC_API_KEY

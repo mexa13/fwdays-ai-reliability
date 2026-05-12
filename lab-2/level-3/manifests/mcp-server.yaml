@@ -1,0 +1,39 @@
+apiVersion: kagent.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: reliability-mcp
+  namespace: kagent
+spec:
+  transportType: http
+  httpTransport:
+    path: /mcp
+    targetPort: 8000
+  deployment:
+    # Replace with your image: docker.io/<user>/reliability-mcp:latest
+    # or ghcr.io/<org>/reliability-mcp:latest
+    image: ghcr.io/REPLACE_ORG/reliability-mcp:latest
+    port: 8000
+    args:
+      - --port
+      - "8000"
+      - --transport
+      - streamableHttp
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: reliability-mcp
+  namespace: kagent
+spec:
+  description: "Reliability tools — HTTP health check, error rate calculator"
+  protocol: STREAMABLE_HTTP
+  url: http://reliability-mcp.kagent:8000/mcp
+  timeout: 30s
+  sseReadTimeout: 5m0s
