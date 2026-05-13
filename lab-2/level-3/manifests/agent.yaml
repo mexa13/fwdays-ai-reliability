@@ -30,6 +30,7 @@ spec:
           apiGroup: kagent.dev
           kind: RemoteMCPServer
           name: reliability-mcp
+          toolNames: []
     a2aConfig:
       skills:
         - id: health-check

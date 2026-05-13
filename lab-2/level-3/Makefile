@@ -1,7 +1,7 @@
 IMAGE    ?= ghcr.io/$(shell git config user.name | tr '[:upper:]' '[:lower:]' | tr ' ' '-')/reliability-mcp
 TAG      ?= latest
 CONTEXT  ?= kind-abox
-ABOX_DIR ?= ../../../../abox
+ABOX_DIR ?= ../../../abox
 
 .PHONY: build push-image load test-local deploy gitlessops teardown
 
