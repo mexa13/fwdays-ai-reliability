@@ -1,5 +1,13 @@
 # fwdays — AI Reliability Engineering 2.0
 
+## Labs
+
+| Lab | Topic |
+|---|---|
+| [Lab 1](#lab-1-deploying-basic-agentic-infrastructure) | Deploying basic agentic infrastructure (agentgateway, kagent, Gateway API) |
+| [Lab 2](./lab-2/README.md) | MCP tool servers, kagent Agents, GitOps + GitLessOps |
+| [Lab 3](./lab-3/README.md) | MCP **Sampling / Elicitation / Apps** on abox — built on `kmcp` + `google-agents-cli` + MCP Inspector |
+
 ## Lab 1: Deploying Basic Agentic Infrastructure
 
 | Level | What you build | Where to run |
@@ -170,6 +178,15 @@ See [lab-1/level-3/README.md](lab-1/level-3/README.md)
 │   └── level-3/                   # Max
 │       ├── manifests/             # + GatewayClass, Gateway, HTTPRoute × 2
 │       └── scripts/               # setup.sh / test.sh
+├── lab-2/                         # MCP tool servers + kagent agents
+│   ├── level-1/                   # Beginners: declarative MCPServer + Agent
+│   ├── level-2/                   # Experienced: GitOps via Flux/abox
+│   └── level-3/                   # Development: custom KMCP + GitLessOps
+├── lab-3/                         # MCP Sampling / Elicitation / Apps
+│   ├── docs/research.md           # Real-world cases for each capability
+│   ├── level-1/                   # Beginners: KMCP + agents-cli + Inspector
+│   ├── level-2/                   # Experienced: MCP Apps (incident dashboard widget)
+│   └── level-3/                   # Max: Sampling + Elicitation (triage flow)
 └── Makefile                       # Root entrypoint
 ```
 

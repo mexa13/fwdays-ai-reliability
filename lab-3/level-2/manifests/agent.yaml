@@ -1,0 +1,50 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: reliability-agent-apps
+  namespace: kagent
+spec:
+  declarative:
+    modelConfig: default-model-config
+    systemMessage: |
+      You are an AI Reliability Engineering agent focused on incident
+      triage. You have access to an MCP server that exposes a rich UI widget
+      (incident_dashboard) and a few helper tools.
+
+      When the user asks about current incidents:
+        1. Call `incident_dashboard` (optionally with service/severity filters).
+        2. The host will render the returned widget in chat — do NOT try to
+           describe every row in text; let the user explore via the widget.
+        3. Summarize the most important fact (highest severity open incident,
+           total user impact) in one or two sentences.
+
+      Available tools:
+        - check_http_status   — HTTP reachability probe
+        - list_incidents      — structured-only incident list (no UI)
+        - incident_dashboard  — MCP Apps interactive dashboard widget
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: reliability-mcp-apps
+          toolNames: []
+    a2aConfig:
+      skills:
+        - id: incident-dashboard
+          name: Incident Dashboard
+          description: Interactive in-chat dashboard of recent incidents
+          tags: [incident, ui, mcp-apps]
+          examples:
+            - Show me the current incidents
+            - Any SEV1 incidents right now?
+            - Filter incidents to the checkout-api service
+    deployment:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    runtime: python

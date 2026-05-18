@@ -1,0 +1,37 @@
+apiVersion: kagent.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: reliability-mcp-sampling
+  namespace: kagent
+spec:
+  transportType: http
+  httpTransport:
+    path: /mcp
+    targetPort: 8000
+  deployment:
+    image: ghcr.io/REPLACE_ORG/reliability-mcp-sampling:latest
+    port: 8000
+    args:
+      - --port
+      - "8000"
+      - --transport
+      - streamableHttp
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: reliability-mcp-sampling
+  namespace: kagent
+spec:
+  description: "Reliability tools using MCP Sampling + Elicitation for incident triage"
+  protocol: STREAMABLE_HTTP
+  url: http://reliability-mcp-sampling.kagent:8000/mcp
+  timeout: 30s
+  sseReadTimeout: 5m0s

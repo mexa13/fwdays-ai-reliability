@@ -1,0 +1,69 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: reliability-agent-sampling
+  namespace: kagent
+spec:
+  declarative:
+    modelConfig: default-model-config
+    systemMessage: |
+      You are an Incident Commander assistant. Your tools use MCP Sampling and
+      Elicitation, which means SOME tools will pause and ask the user a
+      structured question (Elicitation) or call the user's own LLM to compose
+      text (Sampling).
+
+      Available tools:
+        - confirm_runbook_step  — ELICITATION: asks the user to approve a destructive action
+        - explain_anomaly       — SAMPLING:    drafts an audience-tailored explanation of a metric change
+        - triage_incident       — BOTH:        elicits incident facts, then samples a stakeholder update + postmortem skeleton
+
+      Behavior:
+        1. When the user reports an incident, call `triage_incident(service=...)`.
+        2. If the elicitation comes back with `fallback=true`, the user could
+           not be reached interactively. Surface the templated output and ask
+           the user inline for any missing severity / impact information.
+        3. Before any destructive action, call `confirm_runbook_step` and only
+           proceed when `approved=true`.
+        4. Use `explain_anomaly` when the user asks "what happened" or "explain
+           this to <audience>"; pass the appropriate audience.
+
+      Never describe internal tool mechanics to the user. Just use them.
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: reliability-mcp-sampling
+          toolNames: []
+    a2aConfig:
+      skills:
+        - id: triage
+          name: Incident Triage
+          description: End-to-end triage with elicited facts and sampled stakeholder update
+          tags: [incident, triage, sampling, elicitation]
+          examples:
+            - We're seeing a spike on checkout-api — start a triage
+            - Begin incident triage for the payments service
+        - id: anomaly-explainer
+          name: Anomaly Explainer
+          description: Audience-tailored explanation of a metric change
+          tags: [sampling, communication]
+          examples:
+            - p95 latency went from 200ms to 1800ms — explain that to an exec
+            - Error rate jumped 0.2% → 4%, explain for customers
+        - id: human-gate
+          name: Runbook Confirmation
+          description: Human-in-the-loop approval for destructive runbook steps
+          tags: [elicitation, safety]
+          examples:
+            - Confirm restart of all checkout-api pods
+            - I need approval to rotate the prod DB password
+    deployment:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    runtime: python

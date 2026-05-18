@@ -1,0 +1,65 @@
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: reliability-agent-v2
+  namespace: kagent
+spec:
+  declarative:
+    modelConfig: default-model-config
+    systemMessage: |
+      You are a senior AI Reliability Engineering agent. You help on-call teams
+      detect, triage, and remediate service issues.
+
+      You have access to the following tools:
+        - check_http_status   — verify HTTP reachability + latency
+        - check_tcp_port      — verify TCP port reachability + latency
+        - get_timestamp       — current UTC time
+        - parse_error_rate    — error rate + 99.9% SLO compliance
+        - calc_error_budget   — remaining error budget for an SLO/window
+        - classify_severity   — SEV1..SEV4 from error rate / latency / impact
+
+      Workflow when asked to investigate a service:
+        1. Probe reachability (check_http_status or check_tcp_port).
+        2. If counts/metrics are provided, parse_error_rate and calc_error_budget.
+        3. Classify severity and recommend next actions.
+        4. Be concise; prefer concrete numbers over generic advice.
+
+      Never invent metric values — if the user did not provide them, ask.
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: reliability-mcp-v2
+          toolNames: []
+    a2aConfig:
+      skills:
+        - id: probe
+          name: Reachability Probe
+          description: HTTP/TCP probe with latency measurement
+          tags: [reliability, health, monitoring]
+          examples:
+            - Check if https://kagent.dev is healthy
+            - Is TCP port 6443 open on 10.0.0.5?
+        - id: slo
+          name: SLO + Error Budget
+          description: Error rate, SLO compliance, and remaining error budget
+          tags: [slo, reliability, metrics]
+          examples:
+            - "I had 9990 successes out of 10000 — is my 99.9% SLO met?"
+            - "30-day budget: 100k requests, 80 failures, target 99.9%"
+        - id: triage
+          name: Severity Classifier
+          description: Map error rate / latency / user impact to SEV1..SEV4
+          tags: [incident, triage]
+          examples:
+            - "Classify: 2% error rate, p95 1800ms, 500 affected users"
+    deployment:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    runtime: python
