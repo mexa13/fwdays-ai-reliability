@@ -7,6 +7,7 @@
 | [Lab 1](#lab-1-deploying-basic-agentic-infrastructure) | Deploying basic agentic infrastructure (agentgateway, kagent, Gateway API) |
 | [Lab 2](./lab-2/README.md) | MCP tool servers, kagent Agents, GitOps + GitLessOps |
 | [Lab 3](./lab-3/README.md) | MCP **Sampling / Elicitation / Apps** on abox — built on `kmcp` + `google-agents-cli` + MCP Inspector |
+| [Lab 4](./lab-4/README.md) | **Agent-to-Agent (A2A)** — own a2a-sdk agents + agentregistry-inventory + MCPG + qdrant; heterogeneous team with kagent peers |
 
 ## Lab 1: Deploying Basic Agentic Infrastructure
 
@@ -187,6 +188,10 @@ See [lab-1/level-3/README.md](lab-1/level-3/README.md)
 │   ├── level-1/                   # Beginners: KMCP + agents-cli + Inspector
 │   ├── level-2/                   # Experienced: MCP Apps (incident dashboard widget)
 │   └── level-3/                   # Max: Sampling + Elicitation (triage flow)
+├── lab-4/                         # A2A: agent-to-agent
+│   ├── level-1/                   # Beginners: own A2A agent + inventory + MCPG + qdrant
+│   ├── level-2/                   # Experienced: coordinator ↔ worker over A2A
+│   └── level-3/                   # Max: heterogeneous team (own a2a + kagent peers)
 └── Makefile                       # Root entrypoint
 ```
 

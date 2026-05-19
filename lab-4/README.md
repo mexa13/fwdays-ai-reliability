@@ -3,18 +3,18 @@
 A three-level walk through the [Agent2Agent (A2A) protocol](https://a2a-protocol.org). The story across levels:
 
 1. **Level-1 — Beginner.** Build your own A2A agent that publishes an **Agent Card** at the [well-known URI](https://a2a-protocol.org/latest/specification/#well-known-uri) `/.well-known/agent-card.json`. Stand up three pieces of supporting AI infrastructure on `abox`:
-  - `[agentregistry-inventory](https://github.com/den-vasyliev/agentregistry-inventory)` — Kubernetes-native registry that auto-discovers MCP servers, agents, skills, and models.
-  - `[mcp-security-governance](https://github.com/techwithhuz/mcp-security-governance)` (MCPG) — security/posture scoring for the MCP control plane.
-  - `[qdrant](https://github.com/qdrant/qdrant-helm)` — vector database via the official Helm chart.
-2. **Level-2 — Experienced.** Two A2A agents talking to each other. A **coordinator** agent receives a high-level request, then opens an A2A task with a **worker** agent (`message/send` + `tasks/get` polling). Both publish Agent Cards; the worker uses qdrant from level-1 as a tiny knowledge store.
-3. **Level-3 — Max.** A heterogeneous **A2A team**: your own coordinator plus existing `**kagent` agents** (from lab-2 / lab-3 level-1) speaking A2A natively. One composite incident-triage task is fanned out across the team; the lead aggregates partial results.
+   - [agentregistry-inventory](https://github.com/den-vasyliev/agentregistry-inventory) — Kubernetes-native registry that auto-discovers MCP servers, agents, skills, and models.
+   - [mcp-security-governance](https://github.com/techwithhuz/mcp-security-governance) (MCPG) — security/posture scoring for the MCP control plane.
+   - [qdrant](https://github.com/qdrant/qdrant-helm) — vector database via the official Helm chart.
+2. **Level-2 — Experienced.** Two A2A agents talking to each other. A **coordinator** agent receives a high-level request, then opens an A2A task with a **worker** agent via blocking `message/send` (the server holds the request until the task reaches a terminal state and returns the final `Task` in the response). Both publish Agent Cards; the worker uses qdrant from level-1 as a tiny knowledge store.
+3. **Level-3 — Max.** A heterogeneous **A2A team**: your own team-lead plus existing **kagent** agents (from lab-3 levels 1 and 3) speaking A2A natively. One composite incident-triage task is fanned out across the team; the lead aggregates partial results.
 
 ```
-                                          ┌──────────────────┐
-   User request ──▶ team-lead (own a2a) ──┤  reliability-agent (kagent)
-                            │             │  incident-agent  (kagent)
-                            └── A2A ─────▶│  knowledge-agent (own a2a, lvl-2 worker)
-                                          └──────────────────┘
+                                              ┌──────────────────────────────────────────────┐
+   User request ──▶ team-lead (own a2a-sdk) ──┤ reliability-worker          (own a2a, lvl-2) │  ← knowledge
+                                  │           │ reliability-agent           (kagent, lab-3/1)│  ← probe
+                                  └── A2A ───▶│ reliability-agent-sampling  (kagent, lab-3/3)│  ← triage
+                                              └──────────────────────────────────────────────┘
 ```
 
 ## Framework choice
