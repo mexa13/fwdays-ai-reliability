@@ -3,6 +3,7 @@
   l2 l2-run l2-run-anthropic l2-run-lmstudio l2-test l2-down \
   l3 l3-run l3-run-anthropic l3-run-lmstudio l3-test l3-down \
   lab3 lab3-l1 lab3-l2 lab3-l3 lab3-down \
+  lab4 lab4-l1 lab4-l2 lab4-l3 lab4-down \
   down-all
 
 help:
@@ -36,6 +37,13 @@ help:
 	@echo "  lab3-l2             Deploy level-2 (MCP Apps)"
 	@echo "  lab3-l3             Deploy level-3 (Sampling + Elicitation)"
 	@echo "  lab3-down           Tear down all lab-3 resources"
+	@echo ""
+	@echo "Lab 4: Agent-to-Agent (runs against abox):"
+	@echo "  lab4                Lab-4 help"
+	@echo "  lab4-l1             Deploy level-1 (own A2A agent + inventory + MCPG + qdrant)"
+	@echo "  lab4-l2             Deploy level-2 (coordinator ↔ worker over A2A)"
+	@echo "  lab4-l3             Deploy level-3 (heterogeneous team-lead + kagent peers)"
+	@echo "  lab4-down           Tear down all lab-4 resources"
 	@echo ""
 	@echo "  down-all            Stop and destroy all levels"
 
@@ -109,9 +117,26 @@ lab3-l3:
 lab3-down:
 	@$(MAKE) -C lab-3 l3-down
 
+# ─── Lab 4 ───────────────────────────────────────────────────────────────────
+lab4:
+	@$(MAKE) -C lab-4 help
+
+lab4-l1:
+	@$(MAKE) -C lab-4 l4l1-deploy
+
+lab4-l2:
+	@$(MAKE) -C lab-4 l4l2-deploy
+
+lab4-l3:
+	@$(MAKE) -C lab-4 l4l3-deploy
+
+lab4-down:
+	@$(MAKE) -C lab-4 l4-down
+
 # ─── Teardown all ─────────────────────────────────────────────────────────────
 down-all:
 	@$(MAKE) l1-stop   2>/dev/null || true
 	@$(MAKE) l2-down   2>/dev/null || true
 	@$(MAKE) l3-down   2>/dev/null || true
 	@$(MAKE) lab3-down 2>/dev/null || true
+	@$(MAKE) lab4-down 2>/dev/null || true

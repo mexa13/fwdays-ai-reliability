@@ -160,6 +160,27 @@ See [lab-1/level-3/README.md](lab-1/level-3/README.md)
 
 ---
 
+## Lab 4: Agent-to-Agent (A2A)
+
+Three levels building up the [A2A protocol](https://a2a-protocol.org) — Agent Card discovery, JSON-RPC task lifecycle, and a heterogeneous team that mixes your own `a2a-sdk` agents with existing `kagent` agents. Runs against the same `kind-abox` cluster used by labs 2/3.
+
+| Level | What you build | Prerequisites |
+|-------|---------------|---------------|
+| **Level 1** — Beginner | Own A2A agent publishing `/.well-known/agent-card.json`, plus `agentregistry-inventory` + `mcp-security-governance` + `qdrant` on `abox` | `kind-abox` cluster |
+| **Level 2** — Experienced | Coordinator ↔ worker over A2A; the worker uses qdrant from level-1 as a tiny knowledge store | Level 1 |
+| **Level 3** — Max | `team-lead` that fans one incident-triage task across your worker + two kagent agents in parallel; partial failures degrade gracefully | Level 2 + lab-3 levels 1 and 3 |
+
+```bash
+make lab4-l1         # deploy level-1: agent + inventory + MCPG + qdrant
+make lab4-l2         # deploy level-2: coordinator + worker
+make lab4-l3         # deploy level-3: team-lead
+make lab4-down       # tear down all three levels
+```
+
+Each level also has its own per-target Makefile for finer control (`make -C lab-4/level-X deploy / test-task / port-forward / teardown`). See [lab-4/README.md](lab-4/README.md) for the cross-level overview and [lab-4/level-1/README.md](lab-4/level-1/README.md), [lab-4/level-2/README.md](lab-4/level-2/README.md), [lab-4/level-3/README.md](lab-4/level-3/README.md) for step-by-step instructions per level.
+
+---
+
 ## Repository Layout
 
 ```
