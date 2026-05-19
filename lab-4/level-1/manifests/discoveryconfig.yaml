@@ -1,0 +1,15 @@
+apiVersion: agentregistry.dev/v1alpha1
+kind: DiscoveryConfig
+metadata:
+  name: lab-discovery
+  namespace: agentregistry
+spec:
+  environments:
+    - name: lab
+      cluster:
+        name: local
+        useWorkloadIdentity: false
+      namespaces:
+        - a2a-lab
+        - kagent
+      discoveryEnabled: true

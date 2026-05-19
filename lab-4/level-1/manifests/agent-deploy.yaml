@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: a2a-lab
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reliability-a2a
+  namespace: a2a-lab
+  labels:
+    app: reliability-a2a
+    agent.a2a.dev/protocol: "1.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reliability-a2a
+  template:
+    metadata:
+      labels:
+        app: reliability-a2a
+        agent.a2a.dev/protocol: "1.0"
+      annotations:
+        a2a.dev/agent-card: /.well-known/agent-card.json
+    spec:
+      containers:
+        - name: agent
+          image: ghcr.io/REPLACE_ORG/reliability-a2a:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 9000
+          env:
+            - name: PUBLIC_URL
+              value: http://reliability-a2a.a2a-lab.svc.cluster.local:9000
+          readinessProbe:
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 50m,  memory: 96Mi }
+            limits:   { cpu: 300m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reliability-a2a
+  namespace: a2a-lab
+  labels:
+    app: reliability-a2a
+spec:
+  selector:
+    app: reliability-a2a
+  ports:
+    - name: http
+      port: 9000
+      targetPort: http

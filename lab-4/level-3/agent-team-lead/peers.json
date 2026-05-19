@@ -1,0 +1,8 @@
+[
+  { "role": "knowledge", "url": "http://localhost:9001",
+    "ask": "Summarize relevant runbook snippets and FAQ items for this incident in 4 bullets." },
+  { "role": "probe",     "url": "http://localhost:8080",
+    "ask": "Reach out and verify the impacted service is up. Report status code and latency_ms." },
+  { "role": "triage",    "url": "http://localhost:8081",
+    "ask": "Classify severity (SEV1..SEV4) and propose the next 3 actions." }
+]

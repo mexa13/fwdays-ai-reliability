@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: a2a-lab
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reliability-worker
+  namespace: a2a-lab
+  labels:
+    app: reliability-worker
+    agent.a2a.dev/protocol: "1.0"
+    agent.a2a.dev/role: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: reliability-worker }
+  template:
+    metadata:
+      labels:
+        app: reliability-worker
+        agent.a2a.dev/protocol: "1.0"
+      annotations:
+        a2a.dev/agent-card: /.well-known/agent-card.json
+    spec:
+      containers:
+        - name: agent
+          image: ghcr.io/REPLACE_ORG/reliability-worker:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 9001 }]
+          env:
+            - { name: PUBLIC_URL, value: "http://reliability-worker.a2a-lab.svc.cluster.local:9001" }
+            - { name: QDRANT_URL, value: "http://qdrant.qdrant.svc.cluster.local:6333" }
+            - { name: QDRANT_COLLECTION, value: "sre-runbooks" }
+          readinessProbe: { httpGet: { path: /.well-known/agent-card.json, port: http } }
+          livenessProbe:  { httpGet: { path: /.well-known/agent-card.json, port: http }, initialDelaySeconds: 10 }
+          resources:
+            requests: { cpu: 50m,  memory: 96Mi }
+            limits:   { cpu: 300m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reliability-worker
+  namespace: a2a-lab
+spec:
+  selector: { app: reliability-worker }
+  ports: [{ name: http, port: 9001, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reliability-coordinator
+  namespace: a2a-lab
+  labels:
+    app: reliability-coordinator
+    agent.a2a.dev/protocol: "1.0"
+    agent.a2a.dev/role: coordinator
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: reliability-coordinator }
+  template:
+    metadata:
+      labels:
+        app: reliability-coordinator
+        agent.a2a.dev/protocol: "1.0"
+      annotations:
+        a2a.dev/agent-card: /.well-known/agent-card.json
+    spec:
+      containers:
+        - name: agent
+          image: ghcr.io/REPLACE_ORG/reliability-coordinator:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 9002 }]
+          env:
+            - { name: PUBLIC_URL, value: "http://reliability-coordinator.a2a-lab.svc.cluster.local:9002" }
+            - { name: WORKER_URL, value: "http://reliability-worker.a2a-lab.svc.cluster.local:9001" }
+          readinessProbe: { httpGet: { path: /.well-known/agent-card.json, port: http } }
+          livenessProbe:  { httpGet: { path: /.well-known/agent-card.json, port: http }, initialDelaySeconds: 10 }
+          resources:
+            requests: { cpu: 50m,  memory: 96Mi }
+            limits:   { cpu: 300m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reliability-coordinator
+  namespace: a2a-lab
+spec:
+  selector: { app: reliability-coordinator }
+  ports: [{ name: http, port: 9002, targetPort: http }]

@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reliability-team-lead-peers
+  namespace: a2a-lab
+data:
+  peers.json: |
+    [
+      {
+        "role": "knowledge",
+        "url": "http://reliability-worker.a2a-lab.svc.cluster.local:9001",
+        "ask": "Summarize relevant runbook snippets and FAQ items for this incident in 4 bullets."
+      },
+      {
+        "role": "probe",
+        "url": "http://reliability-agent.kagent.svc.cluster.local:8080",
+        "ask": "Reach out and verify the impacted service is up. Report status code and latency_ms."
+      },
+      {
+        "role": "triage",
+        "url": "http://reliability-agent-sampling.kagent.svc.cluster.local:8080",
+        "ask": "Classify severity (SEV1..SEV4) from the impact data provided and propose the next 3 actions."
+      }
+    ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reliability-team-lead
+  namespace: a2a-lab
+  labels:
+    app: reliability-team-lead
+    agent.a2a.dev/protocol: "1.0"
+    agent.a2a.dev/role: team-lead
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: reliability-team-lead }
+  template:
+    metadata:
+      labels:
+        app: reliability-team-lead
+        agent.a2a.dev/protocol: "1.0"
+      annotations:
+        a2a.dev/agent-card: /.well-known/agent-card.json
+    spec:
+      containers:
+        - name: agent
+          image: ghcr.io/REPLACE_ORG/reliability-team-lead:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 9100 }]
+          env:
+            - { name: PUBLIC_URL, value: "http://reliability-team-lead.a2a-lab.svc.cluster.local:9100" }
+            - { name: PEERS_FILE, value: "/etc/team-lead/peers.json" }
+          volumeMounts:
+            - { name: peers, mountPath: /etc/team-lead, readOnly: true }
+          readinessProbe: { httpGet: { path: /.well-known/agent-card.json, port: http } }
+          livenessProbe:  { httpGet: { path: /.well-known/agent-card.json, port: http }, initialDelaySeconds: 10 }
+          resources:
+            requests: { cpu: 50m,  memory: 96Mi }
+            limits:   { cpu: 500m, memory: 384Mi }
+      volumes:
+        - name: peers
+          configMap:
+            name: reliability-team-lead-peers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reliability-team-lead
+  namespace: a2a-lab
+spec:
+  selector: { app: reliability-team-lead }
+  ports: [{ name: http, port: 9100, targetPort: http }]

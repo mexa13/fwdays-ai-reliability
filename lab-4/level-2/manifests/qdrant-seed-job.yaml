@@ -1,0 +1,57 @@
+# Tiny Kubernetes Job that creates the `sre-runbooks` collection in qdrant and
+# upserts a handful of deterministic runbook snippets. Runs once after qdrant is
+# healthy; safe to re-run (operations are idempotent).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: qdrant-seed-sre-runbooks
+  namespace: a2a-lab
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed
+          image: curlimages/curl:8.10.1
+          env:
+            - { name: QDRANT, value: "http://qdrant.qdrant.svc.cluster.local:6333" }
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              echo "==> waiting for qdrant"
+              for i in $(seq 1 30); do
+                if curl -fsS "$QDRANT/healthz" >/dev/null 2>&1 || \
+                   curl -fsS "$QDRANT/collections" >/dev/null 2>&1; then
+                  break
+                fi
+                sleep 2
+              done
+
+              echo "==> ensuring collection sre-runbooks"
+              curl -fsS -X PUT "$QDRANT/collections/sre-runbooks" \
+                -H "content-type: application/json" \
+                -d '{"vectors":{"size":32,"distance":"Cosine"}}' || true
+
+              echo "==> upserting runbook points"
+              # Vectors here are deterministic placeholders; the worker uses the
+              # same toy-hash function so search is reproducible without an
+              # embedding model.
+              cat <<'JSON' | curl -fsS -X PUT "$QDRANT/collections/sre-runbooks/points?wait=true" \
+                -H "content-type: application/json" -d @-
+              {
+                "points": [
+                  {"id": 1, "vector": [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2],
+                   "payload": {"topic": "error-budget", "text": "Burn-rate alerts at 1h and 6h windows catch most regressions before users complain."}},
+                  {"id": 2, "vector": [0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3],
+                   "payload": {"topic": "postmortem", "text": "Postmortem timeline should include UTC timestamps and links to dashboards/logs, not screenshots."}},
+                  {"id": 3, "vector": [0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4],
+                   "payload": {"topic": "canary", "text": "Abort criteria for canaries: error rate, p95 latency, saturation, business KPIs. Automate, do not eyeball."}},
+                  {"id": 4, "vector": [0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,0.1,0.2,0.3,0.4,0.5],
+                   "payload": {"topic": "retries", "text": "Idempotency keys make retries safe. Always set a deadline; drop request rather than retry past it."}}
+                ]
+              }
+              JSON
+              echo "==> done"

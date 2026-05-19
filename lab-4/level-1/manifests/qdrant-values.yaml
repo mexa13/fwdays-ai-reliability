@@ -1,0 +1,21 @@
+# Minimal values for the official qdrant/qdrant helm chart.
+# Keeps the deployment ephemeral (no PVC) so it spins up on any cluster, including
+# fresh `kind` nodes without a default storage class hooked up.
+
+replicaCount: 1
+
+# Lab-only: avoid PVC binding delays on bare kind clusters.
+persistence:
+  size: 1Gi
+  storageClassName: standard
+
+service:
+  type: ClusterIP
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1
+    memory: 1Gi

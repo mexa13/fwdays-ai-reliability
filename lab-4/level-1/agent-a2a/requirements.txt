@@ -1,0 +1,4 @@
+a2a-sdk==1.0.3
+starlette>=0.41
+uvicorn[standard]>=0.32
+sse-starlette>=2.1
