@@ -1,0 +1,93 @@
+# Webhook guardrails on agentgateway. The webhook server scans every prompt
+# and response and can block/modify the traffic before/after the LLM call.
+#
+# Upstream tutorial:
+#   https://agentgateway.dev/docs/kubernetes/latest/llm/guardrails/webhook/guardrails/
+#
+# The policy below targets the `openai` HTTPRoute deployed by lab-1/level-3 — if
+# you exposed Anthropic or another backend, adjust `targetRefs[0].name`.
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: agw-guardrail-tunables
+  namespace: agentgateway-system
+spec:
+  env:
+  - name: GUARDRAIL_WEBHOOK_MAX_CONNECTIONS
+    value: "50"
+  - name: GUARDRAIL_WEBHOOK_KEEPALIVE_SECONDS
+    value: "60"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-guardrail-webhook
+  namespace: agentgateway-system
+  labels:
+    app: ai-guardrail
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-guardrail-webhook
+  template:
+    metadata:
+      labels:
+        app: ai-guardrail-webhook
+    spec:
+      containers:
+      - name: webhook
+        image: gcr.io/solo-public/docs/ai-guardrail-webhook:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-guardrail-webhook
+  namespace: agentgateway-system
+  labels:
+    app: ai-guardrail
+spec:
+  selector:
+    app: ai-guardrail-webhook
+  ports:
+  - port: 8000
+    targetPort: 8000
+  # ClusterIP is enough for an in-cluster webhook. The upstream tutorial uses
+  # LoadBalancer; we keep it ClusterIP for kind compatibility.
+  type: ClusterIP
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: openai-prompt-guard
+  namespace: agentgateway-system
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: openai
+  backend:
+    ai:
+      promptGuard:
+        request:
+        - webhook:
+            backendRef:
+              kind: Service
+              name: ai-guardrail-webhook
+              port: 8000
+        response:
+        - webhook:
+            backendRef:
+              kind: Service
+              name: ai-guardrail-webhook
+              port: 8000

@@ -1,0 +1,62 @@
+# Network-policies use case from
+#   https://agent-sandbox.sigs.k8s.io/docs/use-cases/examples/network-policies/
+#
+# An AgenticSandbox is a higher-level wrapper that ships in the agent-sandbox
+# release manifest. The controller fans it out into a Sandbox + Service +
+# NetworkPolicy. Below we (a) define the wrapper instance and (b) explicitly
+# attach a deny-by-default NetworkPolicy that allows only DNS egress, so the
+# sandboxed workload cannot reach the cluster network or the internet.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: a5-sandbox
+  labels:
+    app.kubernetes.io/part-of: lab-5
+---
+apiVersion: custom.agents.x-k8s.io/v1alpha1
+kind: AgenticSandbox
+metadata:
+  name: demo
+  namespace: a5-sandbox
+spec:
+  image: nginx
+  service:
+    port: 80
+---
+# Deny-by-default ingress and egress for every pod in the namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+  namespace: a5-sandbox
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Carve out the bare minimum the sandbox needs: DNS to kube-dns. Add more rules
+# here when an example demands outbound HTTP/HTTPS to a specific peer.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: a5-sandbox
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

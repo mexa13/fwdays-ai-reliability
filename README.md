@@ -8,6 +8,7 @@
 | [Lab 2](./lab-2/README.md) | MCP tool servers, kagent Agents, GitOps + GitLessOps |
 | [Lab 3](./lab-3/README.md) | MCP **Sampling / Elicitation / Apps** on abox — built on `kmcp` + `google-agents-cli` + MCP Inspector |
 | [Lab 4](./lab-4/README.md) | **Agent-to-Agent (A2A)** — own a2a-sdk agents + agentregistry-inventory + MCPG + qdrant; heterogeneous team with kagent peers |
+| [Lab 5](./lab-5/README.md) | **Sandboxing & Observability** — Agent Sandbox (k8s-sigs) + Arize Phoenix + MCP/agentgateway tracing |
 
 ## Lab 1: Deploying Basic Agentic Infrastructure
 
@@ -181,6 +182,29 @@ Each level also has its own per-target Makefile for finer control (`make -C lab-
 
 ---
 
+## Lab 5: Sandboxing & Observability
+
+Three levels covering the **two pillars of agent reliability in production**: isolating untrusted agent code with **[Agent Sandbox](https://agent-sandbox.sigs.k8s.io)** (Kubernetes-SIG) and tracing/evaluating what agents actually do with **[Arize Phoenix](https://arize.com/docs/phoenix)**. Runs against `kind-abox`.
+
+| Level | What you build | Prerequisites |
+|-------|---------------|---------------|
+| **Level 1** — Beginner | Install Agent Sandbox controller + reproduce the [NetworkPolicy use case](https://agent-sandbox.sigs.k8s.io/docs/use-cases/examples/network-policies/); walk through the Phoenix LangChain Colab | `kind-abox` cluster |
+| **Level 2** — Experienced | Deploy Phoenix via Helm on `abox`; instrument an MCP server with `openinference-instrumentation-mcp`; scrape Sandbox runtime metrics through an OTel Collector | Level 1 |
+| **Level 3** — Max | Route agentgateway frontend traces into Phoenix; ADK code-interpreter agent that manages sandboxes through the Python SDK | Level 2 + lab-1/level-3 |
+
+```bash
+make lab5-l1            # Agent Sandbox + NetworkPolicy example
+make lab5-l2            # Phoenix + OTel Collector + traced MCP
+make lab5-l3            # agentgateway → Phoenix + Sandbox SDK demo
+make lab5-apikey        # extra: API key auth on agentgateway
+make lab5-guardrails    # extra: webhook guardrails on agentgateway
+make lab5-down          # tear down all lab-5 resources
+```
+
+See [lab-5/README.md](lab-5/README.md) for the cross-level overview and the per-level READMEs for step-by-step instructions ([level-1](lab-5/level-1/README.md), [level-2](lab-5/level-2/README.md), [level-3](lab-5/level-3/README.md)).
+
+---
+
 ## Repository Layout
 
 ```
@@ -213,6 +237,11 @@ Each level also has its own per-target Makefile for finer control (`make -C lab-
 │   ├── level-1/                   # Beginners: own A2A agent + inventory + MCPG + qdrant
 │   ├── level-2/                   # Experienced: coordinator ↔ worker over A2A
 │   └── level-3/                   # Max: heterogeneous team (own a2a + kagent peers)
+├── lab-5/                         # Sandboxing & Observability
+│   ├── level-1/                   # Beginner: Agent Sandbox + NetworkPolicy example
+│   ├── level-2/                   # Experienced: Phoenix + OTel Collector + traced MCP
+│   ├── level-3/                   # Max: agentgateway → Phoenix + Sandbox SDK demo
+│   └── extras/                    # apikey + webhook guardrails on agentgateway
 └── Makefile                       # Root entrypoint
 ```
 

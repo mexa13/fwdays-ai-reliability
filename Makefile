@@ -4,6 +4,7 @@
   l3 l3-run l3-run-anthropic l3-run-lmstudio l3-test l3-down \
   lab3 lab3-l1 lab3-l2 lab3-l3 lab3-down \
   lab4 lab4-l1 lab4-l2 lab4-l3 lab4-down \
+  lab5 lab5-l1 lab5-l2 lab5-l3 lab5-apikey lab5-guardrails lab5-down \
   down-all
 
 help:
@@ -44,6 +45,15 @@ help:
 	@echo "  lab4-l2             Deploy level-2 (coordinator ↔ worker over A2A)"
 	@echo "  lab4-l3             Deploy level-3 (heterogeneous team-lead + kagent peers)"
 	@echo "  lab4-down           Tear down all lab-4 resources"
+	@echo ""
+	@echo "Lab 5: Sandboxing & Observability (runs against abox):"
+	@echo "  lab5                Lab-5 help"
+	@echo "  lab5-l1             Deploy level-1 (Agent Sandbox + NetworkPolicy example)"
+	@echo "  lab5-l2             Deploy level-2 (Phoenix + OTel Collector + traced MCP)"
+	@echo "  lab5-l3             Deploy level-3 (agentgateway → Phoenix + Sandbox SDK demo)"
+	@echo "  lab5-apikey         Apply the agentgateway API key extra"
+	@echo "  lab5-guardrails     Apply the agentgateway webhook guardrails extra"
+	@echo "  lab5-down           Tear down all lab-5 resources"
 	@echo ""
 	@echo "  down-all            Stop and destroy all levels"
 
@@ -133,6 +143,28 @@ lab4-l3:
 lab4-down:
 	@$(MAKE) -C lab-4 l4-down
 
+# ─── Lab 5 ───────────────────────────────────────────────────────────────────
+lab5:
+	@$(MAKE) -C lab-5 help
+
+lab5-l1:
+	@$(MAKE) -C lab-5 l5l1-deploy
+
+lab5-l2:
+	@$(MAKE) -C lab-5 l5l2-deploy
+
+lab5-l3:
+	@$(MAKE) -C lab-5 l5l3-deploy
+
+lab5-apikey:
+	@$(MAKE) -C lab-5 l5-extras-apikey
+
+lab5-guardrails:
+	@$(MAKE) -C lab-5 l5-extras-guardrails
+
+lab5-down:
+	@$(MAKE) -C lab-5 l5-down
+
 # ─── Teardown all ─────────────────────────────────────────────────────────────
 down-all:
 	@$(MAKE) l1-stop   2>/dev/null || true
@@ -140,3 +172,4 @@ down-all:
 	@$(MAKE) l3-down   2>/dev/null || true
 	@$(MAKE) lab3-down 2>/dev/null || true
 	@$(MAKE) lab4-down 2>/dev/null || true
+	@$(MAKE) lab5-down 2>/dev/null || true

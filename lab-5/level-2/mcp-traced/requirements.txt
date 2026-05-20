@@ -1,0 +1,6 @@
+mcp>=1.2.0
+fastmcp>=0.2.0
+arize-phoenix-otel>=0.6.0
+openinference-instrumentation-mcp>=0.1.0
+opentelemetry-sdk>=1.27.0
+opentelemetry-exporter-otlp-proto-grpc>=1.27.0

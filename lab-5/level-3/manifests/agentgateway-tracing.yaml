@@ -1,0 +1,28 @@
+# Wire agentgateway's frontend tracing pipeline to the OTel Collector deployed
+# in level-2 (which in turn forwards spans to Phoenix on port 4317).
+#
+# Upstream tutorial:
+#   https://agentgateway.dev/docs/kubernetes/latest/tutorials/telemetry/
+#
+# We target the Gateway from lab-1/level-3 (the `agentgateway-proxy` Gateway
+# created by `make l3-run`). If your Gateway lives elsewhere, edit the
+# targetRefs below.
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: tracing-to-phoenix
+  namespace: agentgateway-system
+spec:
+  targetRefs:
+    - kind: Gateway
+      name: agentgateway-proxy
+      group: gateway.networking.k8s.io
+  frontend:
+    tracing:
+      backendRef:
+        name: otel-collector
+        namespace: phoenix
+        port: 4317
+      protocol: GRPC
+      randomSampling: "true"

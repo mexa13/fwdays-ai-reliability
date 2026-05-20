@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: a5-observe
+  labels:
+    app.kubernetes.io/part-of: lab-5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reliability-mcp-traced
+  namespace: a5-observe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reliability-mcp-traced
+  template:
+    metadata:
+      labels:
+        app: reliability-mcp-traced
+      annotations:
+        # Picked up by the otel-collector prometheus discovery (level-2's
+        # collector also scrapes Sandbox runtime metrics through the same
+        # annotations — see manifests/otel-collector.yaml).
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+    spec:
+      containers:
+      - name: server
+        image: REPLACE_ME/reliability-mcp-traced:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PHOENIX_COLLECTOR_ENDPOINT
+          value: "http://phoenix.phoenix.svc.cluster.local:6006"
+        - name: PHOENIX_PROJECT_NAME
+          value: "lab-5-mcp"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

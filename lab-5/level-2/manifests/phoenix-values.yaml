@@ -1,0 +1,41 @@
+# Arize Phoenix Helm values for a kind-abox lab cluster.
+#
+# Chart:   oci://registry-1.docker.io/arizephoenix/phoenix-helm
+# Docs:    https://arize.com/docs/phoenix/self-hosting/deployment-options/kubernetes-helm
+#
+# Notes
+# - We default to the bundled SQLite store. Fine for labs; swap to the Postgres
+#   subchart for anything resembling production.
+# - The `server.port` is the single port that serves both the Phoenix UI and the
+#   OTLP HTTP receiver. The container also listens on 4317 for OTLP gRPC.
+# - Resources are sized for a Codespace 4-core/16GB box.
+
+server:
+  port: 6006
+  grpcPort: 4317
+
+service:
+  type: ClusterIP
+  port: 6006
+  grpcPort: 4317
+
+# Disable Postgres so the chart provisions Phoenix with its embedded SQLite DB.
+postgresql:
+  enabled: false
+
+# SQLite needs a writable volume that survives pod restarts.
+persistence:
+  enabled: true
+  size: 5Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# No auth in labs. Add `auth.enabled: true` + `auth.secret` for anything real.
+auth:
+  enabled: false
