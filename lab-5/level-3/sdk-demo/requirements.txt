@@ -1,9 +1,11 @@
 # google-adk pinned to the version used elsewhere in this repo (lab-3 / lab-4).
 google-adk==1.19.0
 
-# Agent Sandbox Python SDK. Pulled from the upstream git tag chosen below.
-# Override via `pip install ... agent-sandbox.git@<tag>#subdirectory=...`.
-git+https://github.com/kubernetes-sigs/agent-sandbox.git@main#subdirectory=clients/python/agentic-sandbox-client
+# Agent Sandbox Python SDK. MUST match the CRD versions installed in the
+# cluster — main branch is on v1beta1, release v0.4.6 CRDs are v1alpha1.
+# Mismatch surfaces as 404 on create_sandbox(). Bump in lockstep when the
+# next release ships v1beta1 CRDs.
+git+https://github.com/kubernetes-sigs/agent-sandbox.git@v0.4.6#subdirectory=clients/python/agentic-sandbox-client
 
 # OTLP exporter so the ADK side also lands in Phoenix.
 arize-phoenix-otel>=0.6.0

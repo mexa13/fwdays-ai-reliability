@@ -82,7 +82,7 @@ Run it from your laptop (uses your current kubeconfig context `kind-abox`):
 
 ```bash
 # Phoenix port-forward so the agent can reach it on localhost:
-kubectl --context kind-abox -n phoenix port-forward svc/phoenix 6006:6006 &
+kubectl --context kind-abox -n phoenix port-forward svc/phoenix-svc 6006:6006 &
 
 make install-local
 export GOOGLE_API_KEY=...      # gemini key

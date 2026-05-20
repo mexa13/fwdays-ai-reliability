@@ -75,16 +75,40 @@ spec:
   targetRefs:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
-    name: openai
+    # Created by `make llm-route-apply` in this directory. If you wired up
+    # your own HTTPRoute elsewhere, change the name to match.
+    name: llm
   backend:
     ai:
       promptGuard:
+        # promptGuard.request is an *ordered list* of rules; each request runs
+        # through every rule. We stack two:
+        #   1. webhook — demo of external scanner integration. The upstream
+        #      sample image just echoes "200 OK" so it never actually blocks
+        #      anything — useful to show payload shape in webhook logs.
+        #   2. regex with action: Reject — built-in pattern matcher that
+        #      DOES block. Patterns are case-insensitive, ECMAScript syntax.
+        # In production replace the webhook with a real guard (LlamaGuard,
+        # OpenAI Moderation API, custom classifier, etc.) and trim the regex
+        # to whatever your threat model actually needs.
         request:
         - webhook:
             backendRef:
               kind: Service
               name: ai-guardrail-webhook
               port: 8000
+        - regex:
+            action: Reject
+            matches:
+            # Prompt-injection patterns.
+            - "(?i)ignore (previous|prior|all) (instructions|prompts|rules)"
+            - "(?i)(disregard|forget) (the above|previous|prior)"
+            - "(?i)you are now (in|a) developer mode"
+            - "(?i)exfiltrate (secrets|credentials|api keys)"
+            # PII leakage built-ins — the data plane has these baked in.
+            builtins:
+            - CreditCard
+            - Ssn
         response:
         - webhook:
             backendRef:

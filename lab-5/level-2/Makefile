@@ -1,13 +1,15 @@
-IMAGE_PREFIX  ?= ghcr.io/$(shell git config user.name | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-MCP_IMG       ?= $(IMAGE_PREFIX)/reliability-mcp-traced
+# Local-only image tag. We kind-load into abox; no registry push, so the tag
+# doesn't need an org prefix. Override MCP_IMG=ghcr.io/you/foo if you do want
+# to push (and then run `make push` instead of `make load`).
+MCP_IMG       ?= reliability-mcp-traced
 TAG           ?= latest
 CONTEXT       ?= kind-abox
 PHOENIX_NS    ?= phoenix
 APP_NS        ?= a5-observe
-PHOENIX_VER   ?= 12.5.0
+PHOENIX_VER   ?= 7.0.12
 
 .PHONY: help deploy-phoenix deploy-collector deploy-mcp build load deploy \
-        port-forward-phoenix port-forward-otel test-trace install-local run-local \
+        port-forward-phoenix port-forward-otel test-trace mcp-logs install-local run-local \
         teardown teardown-phoenix teardown-collector teardown-mcp
 
 help:
@@ -18,9 +20,10 @@ help:
 	@echo "  load                   kind load the MCP image into abox"
 	@echo "  deploy-mcp             apply MCP server Deployment in ns/$(APP_NS)"
 	@echo "  deploy                 phoenix + collector + MCP (full level-2)"
-	@echo "  port-forward-phoenix   svc/phoenix:6006 → localhost (UI)"
+	@echo "  port-forward-phoenix   svc/phoenix-svc:6006 → localhost (UI)"
 	@echo "  port-forward-otel      svc/otel-collector:4317 → localhost"
-	@echo "  test-trace             call the MCP server inside the cluster to emit a span"
+	@echo "  test-trace             exec into the MCP pod and invoke each tool once (instant span)"
+	@echo "  mcp-logs               tail the demo-loop stdout from the MCP pod"
 	@echo "  install-local / run-local   venv-based local dev (no kind required)"
 	@echo "  teardown               remove MCP + Collector + Phoenix"
 
@@ -35,7 +38,7 @@ deploy-phoenix:
 	  -n $(PHOENIX_NS) \
 	  -f manifests/phoenix-values.yaml
 	kubectl --context $(CONTEXT) -n $(PHOENIX_NS) rollout status \
-	  deploy --selector=app.kubernetes.io/name=phoenix --timeout=300s || true
+	  deploy/phoenix --timeout=300s
 
 # ─── OTel Collector (Phoenix sink + Sandbox metrics scrape) ───────────────────
 
@@ -67,18 +70,23 @@ deploy: deploy-phoenix deploy-collector deploy-mcp
 # ─── Port-forwards & smoke test ──────────────────────────────────────────────
 
 port-forward-phoenix:
-	kubectl --context $(CONTEXT) -n $(PHOENIX_NS) port-forward svc/phoenix 6006:6006 4317:4317
+	kubectl --context $(CONTEXT) -n $(PHOENIX_NS) port-forward svc/phoenix-svc 6006:6006 4317:4317
 
 port-forward-otel:
 	kubectl --context $(CONTEXT) -n $(PHOENIX_NS) port-forward svc/otel-collector 4317:4317
 
-# Calls the MCP server in-cluster via stdio is awkward; instead we exec into the
-# pod and import + invoke the tool directly, which goes through the same tracer.
+# Trigger one extra span on demand by exec'ing into the pod and calling the
+# tools directly. The container also self-drives via --demo every 15s, so this
+# target is just for "I want a span RIGHT NOW".
 test-trace:
 	@POD=$$(kubectl --context $(CONTEXT) -n $(APP_NS) get pod \
 	    -l app=reliability-mcp-traced -o jsonpath='{.items[0].metadata.name}'); \
 	  kubectl --context $(CONTEXT) -n $(APP_NS) exec "$$POD" -- python -c \
 	    "import server, json; print(json.dumps(server.error_budget(99.9, 30))); print(json.dumps(server.toy_incident_triage('Database connection errors after the deploy')))"
+
+# Tail the demo-loop logs so you can confirm the pod is alive and ticking.
+mcp-logs:
+	kubectl --context $(CONTEXT) -n $(APP_NS) logs -f deploy/reliability-mcp-traced
 
 # ─── Local dev (no cluster) ──────────────────────────────────────────────────
 

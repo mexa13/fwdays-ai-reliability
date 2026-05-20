@@ -22,19 +22,29 @@ deploy-tracing:
 	fi
 	kubectl --context $(CONTEXT) apply -f manifests/agentgateway-tracing.yaml
 
-port-forward-agentgateway:
-	# The Gateway Service name comes from lab-1/level-3 (`agentgateway-proxy`).
-	# Override $(GATEWAY_SVC) / $(GATEWAY_PORT) if your topology differs.
-	kubectl --context $(CONTEXT) -n agentgateway-system port-forward \
-	  svc/agentgateway-proxy 3000:80
+GATEWAY_SVC  ?= agentgateway-external
+GATEWAY_NS   ?= agentgateway-system
+GATEWAY_PORT ?= 80
+LOCAL_PORT   ?= 8080
 
-# Fires a request through agentgateway. Assumes lab-1/level-3 is up and that
-# you've already exported OPENAI_API_KEY (the backend the gateway routes to).
+port-forward-agentgateway:
+	# Defaults match the abox stack (agentgateway-external on :80). For the
+	# Gateway from lab-1/level-3 (`agentgateway-proxy`), override:
+	#   make port-forward-agentgateway GATEWAY_SVC=agentgateway-proxy
+	kubectl --context $(CONTEXT) -n $(GATEWAY_NS) port-forward \
+	  svc/$(GATEWAY_SVC) $(LOCAL_PORT):$(GATEWAY_PORT)
+
+# Sends a probe through the gateway. The route /api/version goes to the
+# kagent-controller backend (HTTPRoute/kagent). Any request through the
+# Gateway produces a frontend trace, regardless of backend.
 test-trace:
-	@curl -fsS http://localhost:3000/v1/chat/completions \
-	  -H 'Content-Type: application/json' \
-	  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello from lab-5"}]}' \
-	  | jq -r '.choices[0].message.content // .'
+	@echo "── GET /api/version through the gateway ──"
+	@curl -fsS -o /dev/null -w 'HTTP %{http_code} in %{time_total}s\n' \
+	  http://localhost:$(LOCAL_PORT)/api/version || true
+	@echo "── HEAD / (UI root) ──"
+	@curl -fsS -o /dev/null -w 'HTTP %{http_code} in %{time_total}s\n' \
+	  -I http://localhost:$(LOCAL_PORT)/ || true
+	@echo "==> Check Phoenix (port-forward 6006) — new spans should appear under a new project."
 
 # ─── SDK demo (local) ─────────────────────────────────────────────────────────
 
@@ -44,7 +54,7 @@ install-local:
 	  ./.venv/bin/pip install -q -r sdk-demo/requirements.txt
 
 run-local:
-	PHOENIX_COLLECTOR_ENDPOINT=$${PHOENIX_COLLECTOR_ENDPOINT:-http://localhost:6006} \
+	PHOENIX_COLLECTOR_ENDPOINT=$${PHOENIX_COLLECTOR_ENDPOINT:-http://localhost:6006/v1/traces} \
 	  ./.venv/bin/python sdk-demo/code_interpreter_agent.py
 
 # ─── Combined deploy ─────────────────────────────────────────────────────────

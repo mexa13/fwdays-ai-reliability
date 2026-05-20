@@ -69,7 +69,7 @@ The server lives in [`mcp-traced/server.py`](./mcp-traced/server.py). Highlights
 from phoenix.otel import register
 tracer_provider = register(
     project_name="lab-5-mcp",
-    endpoint="http://phoenix.phoenix.svc.cluster.local:6006",
+    endpoint="http://phoenix-svc.phoenix.svc.cluster.local:6006",
     auto_instrument=True,
 )
 tracer = tracer_provider.get_tracer("reliability-mcp")
@@ -142,7 +142,13 @@ Run a separate Phoenix locally via `pip install arize-phoenix && phoenix serve` 
 
 ## Gotchas
 
-- **Phoenix Helm chart version.** `PHOENIX_VER` defaults to `12.5.0`. Bump to the latest from `oci://registry-1.docker.io/arizephoenix/phoenix-helm` if the chart API has moved on; the values file uses the stable keys (`server.*`, `service.*`, `persistence.*`, `auth.*`).
+- **Phoenix Helm chart version.** `PHOENIX_VER` defaults to `7.0.12` (the chart version — Phoenix app version is `15.x`, the two are independent). Bump to the latest from `oci://registry-1.docker.io/arizephoenix/phoenix-helm` if the chart API moves; the values file uses the stable keys (`server.*`, `service.*`, `persistence.*`, `additionalEnv`).
+- **Phoenix has auth ON by default.** The Helm chart sets `PHOENIX_ENABLE_AUTH=true` in its ConfigMap. Without override, OTLP exporters get `401 Unauthorized` and the UI forces a login. The lab values override this to `false` for simplicity. **To run auth-enabled** (closer to production):
+  1. In `phoenix-values.yaml` drop the `PHOENIX_ENABLE_AUTH=false` line and add `PHOENIX_SECRET=<long-random-string>` to `additionalEnv`.
+  2. After `helm upgrade`, open the UI, log in as `admin@localhost` with the password from `PHOENIX_DEFAULT_ADMIN_INITIAL_PASSWORD` (the chart generates one — `kubectl -n phoenix get secret phoenix-secret -o jsonpath='{.data.PHOENIX_DEFAULT_ADMIN_INITIAL_PASSWORD}' \| base64 -d`).
+  3. **Settings → API Keys → Create System Key**, copy the value.
+  4. `kubectl -n a5-observe create secret generic phoenix-creds --from-literal=PHOENIX_API_KEY=<paste>`.
+  5. In `mcp-traced-deploy.yaml` add an env `PHOENIX_API_KEY` from that Secret. `phoenix.otel` picks it up automatically and adds the `Authorization: Bearer ...` header.
 - **PVC stays around after teardown.** `helm uninstall` doesn't delete PVCs by default. Run `kubectl -n phoenix delete pvc --all` if you want a clean slate.
 - **`phoenix.otel.register(endpoint=...)`** auto-selects HTTP vs gRPC by port. Port 6006 → HTTP OTLP at `/v1/traces`; port 4317 → gRPC. Both work here.
 - **Annotations vs ServiceMonitor.** The Collector uses Prometheus pod-annotation discovery to keep things light — no Prometheus Operator required. If you already run kube-prometheus-stack, swap to ServiceMonitor.

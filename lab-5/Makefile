@@ -21,14 +21,13 @@ l5l3-deploy:
 	$(MAKE) -C level-3 deploy
 
 l5-extras-apikey:
-	$(MAKE) -C extras/apikey apply
+	$(MAKE) -C extras apikey-apply
 
 l5-extras-guardrails:
-	$(MAKE) -C extras/guardrails apply
+	$(MAKE) -C extras guardrails-apply
 
 l5-down:
 	$(MAKE) -C level-3 teardown
 	$(MAKE) -C level-2 teardown
 	$(MAKE) -C level-1 teardown
-	$(MAKE) -C extras/apikey teardown      2>/dev/null || true
-	$(MAKE) -C extras/guardrails teardown  2>/dev/null || true
+	$(MAKE) -C extras teardown-all  2>/dev/null || true

@@ -1,41 +1,47 @@
 # Arize Phoenix Helm values for a kind-abox lab cluster.
 #
-# Chart:   oci://registry-1.docker.io/arizephoenix/phoenix-helm
+# Chart:   oci://registry-1.docker.io/arizephoenix/phoenix-helm:7.0.12
+# AppVer:  Phoenix 15.x (see `helm show chart ... | grep appVersion`)
 # Docs:    https://arize.com/docs/phoenix/self-hosting/deployment-options/kubernetes-helm
 #
 # Notes
-# - We default to the bundled SQLite store. Fine for labs; swap to the Postgres
-#   subchart for anything resembling production.
-# - The `server.port` is the single port that serves both the Phoenix UI and the
-#   OTLP HTTP receiver. The container also listens on 4317 for OTLP gRPC.
-# - Resources are sized for a Codespace 4-core/16GB box.
+# - Persistence strategy is SQLite-on-PVC. Chart enforces XOR with postgresql
+#   (cannot enable both); see the database: docs block in upstream values.yaml.
+# - `server.port` (6006) serves both Phoenix UI and OTLP HTTP `/v1/traces`.
+#   `server.grpcPort` (4317) is OTLP gRPC.
+# - Default chart values turn on Ingress with no host — kind has no ingress
+#   controller, so we disable it and reach Phoenix via port-forward.
 
+# Disable ingress — we port-forward in the lab.
+ingress:
+  enabled: false
+
+# Disable Phoenix's built-in auth for the lab. The chart has no top-level
+# `auth.*` block; auth is controlled via PHOENIX_ENABLE_AUTH env var. Without
+# this, OTLP exporters get a 401 unless they send a Bearer token, and the UI
+# forces a login.
+#
+# For a "real" deployment: set PHOENIX_ENABLE_AUTH=True and PHOENIX_SECRET,
+# then generate an API key in the UI (Settings → API Keys) and inject it into
+# the trace producers as PHOENIX_API_KEY — phoenix.otel auto-adds the header.
+additionalEnv:
+  - name: PHOENIX_ENABLE_AUTH
+    value: "false"
+
+# Phoenix server (UI + OTLP receivers).
 server:
   port: 6006
   grpcPort: 4317
 
+# ClusterIP — accessed via `kubectl port-forward svc/phoenix-svc ...`.
 service:
   type: ClusterIP
-  port: 6006
-  grpcPort: 4317
 
-# Disable Postgres so the chart provisions Phoenix with its embedded SQLite DB.
+# Disable the bundled postgres subchart so the SQLite path is used.
 postgresql:
   enabled: false
 
-# SQLite needs a writable volume that survives pod restarts.
+# SQLite store on a PVC (~5Gi is plenty for a lab; chart default is 20Gi).
 persistence:
   enabled: true
   size: 5Gi
-
-resources:
-  requests:
-    cpu: 100m
-    memory: 256Mi
-  limits:
-    cpu: 1000m
-    memory: 1Gi
-
-# No auth in labs. Add `auth.enabled: true` + `auth.secret` for anything real.
-auth:
-  enabled: false

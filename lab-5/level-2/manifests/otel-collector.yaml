@@ -61,7 +61,7 @@ data:
       # Spans → Phoenix (gRPC OTLP). `tls.insecure: true` because Phoenix in
       # the lab chart is plain HTTP.
       otlp/phoenix:
-        endpoint: phoenix.phoenix.svc.cluster.local:4317
+        endpoint: phoenix-svc.phoenix.svc.cluster.local:4317
         tls:
           insecure: true
       prometheus:

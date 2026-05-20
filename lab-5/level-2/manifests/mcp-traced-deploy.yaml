@@ -33,7 +33,7 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
         - name: PHOENIX_COLLECTOR_ENDPOINT
-          value: "http://phoenix.phoenix.svc.cluster.local:6006"
+          value: "http://phoenix-svc.phoenix.svc.cluster.local:6006/v1/traces"
         - name: PHOENIX_PROJECT_NAME
           value: "lab-5-mcp"
         resources:

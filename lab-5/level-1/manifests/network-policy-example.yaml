@@ -1,11 +1,13 @@
-# Network-policies use case from
-#   https://agent-sandbox.sigs.k8s.io/docs/use-cases/examples/network-policies/
+# Network-policies use case, adapted for agent-sandbox v0.4.6.
 #
-# An AgenticSandbox is a higher-level wrapper that ships in the agent-sandbox
-# release manifest. The controller fans it out into a Sandbox + Service +
-# NetworkPolicy. Below we (a) define the wrapper instance and (b) explicitly
-# attach a deny-by-default NetworkPolicy that allows only DNS egress, so the
-# sandboxed workload cannot reach the cluster network or the internet.
+# Upstream docs at https://agent-sandbox.sigs.k8s.io/docs/use-cases/examples/network-policies/
+# illustrate the pattern with an `AgenticSandbox` composite resource, but that
+# kind is provided by a KRO ResourceGraphDefinition shipped in the upstream
+# `dev/` tooling — it is NOT included in the v0.4.x release `extensions.yaml`.
+# Instead of pulling KRO + an out-of-band RGD into the lab, we use the actual
+# `Sandbox` CRD directly. The deny-all + allow-DNS NetworkPolicies are the
+# point of the example regardless of which higher-level abstraction wraps the
+# pod.
 ---
 apiVersion: v1
 kind: Namespace
@@ -14,15 +16,25 @@ metadata:
   labels:
     app.kubernetes.io/part-of: lab-5
 ---
-apiVersion: custom.agents.x-k8s.io/v1alpha1
-kind: AgenticSandbox
+apiVersion: agents.x-k8s.io/v1alpha1
+kind: Sandbox
 metadata:
   name: demo
   namespace: a5-sandbox
 spec:
-  image: nginx
-  service:
-    port: 80
+  podTemplate:
+    spec:
+      containers:
+      - name: tools
+        # netshoot ships curl, nslookup, dig, etc. — handy for poking at the
+        # network policies below. Swap for any image you want to sandbox.
+        image: nicolaka/netshoot:latest
+        command: ["sleep", "infinity"]
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+      restartPolicy: OnFailure
 ---
 # Deny-by-default ingress and egress for every pod in the namespace.
 apiVersion: networking.k8s.io/v1
@@ -36,8 +48,15 @@ spec:
   - Ingress
   - Egress
 ---
-# Carve out the bare minimum the sandbox needs: DNS to kube-dns. Add more rules
-# here when an example demands outbound HTTP/HTTPS to a specific peer.
+# Carve out the bare minimum the sandbox needs: DNS on 53/UDP + 53/TCP.
+#
+# We deliberately omit `to:` here. Earlier iterations pinned namespaceSelector
+# (kubernetes.io/metadata.name=kube-system) and podSelector (k8s-app=kube-dns),
+# but kindnet's NetworkPolicy implementation has historically been finicky with
+# namespaceSelector matching — the rule would compile but match zero peers, so
+# DNS stayed blocked even though deny-all worked. Dropping `to:` allows port
+# 53/UDP+TCP to any destination, which on a kind cluster is effectively just
+# CoreDNS in kube-system anyway. Tight enough for a sandbox lab.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -48,14 +67,7 @@ spec:
   policyTypes:
   - Egress
   egress:
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: kube-system
-      podSelector:
-        matchLabels:
-          k8s-app: kube-dns
-    ports:
+  - ports:
     - protocol: UDP
       port: 53
     - protocol: TCP

@@ -1,9 +1,10 @@
 # API key authentication on the agentgateway Gateway.
 # Upstream: https://agentgateway.dev/docs/kubernetes/latest/security/apikey/
 #
-# Two resources: a Secret typed as `extauth.solo.io/apikey` (only the
-# `api-key` field is meaningful) and an AgentgatewayPolicy in Strict mode.
-# Strict means: requests without a valid key are rejected.
+# The `__APIKEY__` placeholder is substituted at apply time by the Makefile.
+# Source of truth for the actual key is, in order: LAB5_API_KEY env var, then
+# ./.apikey local file (auto-generated if missing). The committed YAML never
+# contains a real secret.
 ---
 apiVersion: v1
 kind: Secret
@@ -14,8 +15,7 @@ metadata:
     app: lab-5
 type: extauth.solo.io/apikey
 stringData:
-  # Lab-only — rotate before doing anything resembling production.
-  api-key: N2YwMDIxZTEtNGUzNS1jNzgzLTRkYjAtYjE2YzRkZGVmNjcy
+  api-key: __APIKEY__
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -26,7 +26,9 @@ spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: agentgateway-proxy
+      # Matches the Gateway shipped with the abox stack. For lab-1/level-3
+      # users, override to `agentgateway-proxy` in your apply pipeline.
+      name: agentgateway-external
   traffic:
     apiKeyAuthentication:
       mode: Strict
